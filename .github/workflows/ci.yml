@@ -47,13 +47,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CMake & GTest
+      - name: Install CMake, GTest & Clang-Tidy
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libgtest-dev
+          sudo apt-get install -y cmake libgtest-dev clang-tidy
 
       - name: Configure CMake (Test Only)
-        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON
+        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Lint (Clang-Tidy)
+        run: |
+          # Run clang-tidy on source files
+          # Using find to get .cc files, avoiding build directory
+          find . -name "*.cc" -not -path "./build/*" | xargs clang-tidy -p build --quiet --config-file=../.clang-tidy
 
       - name: Build
         run: cmake --build build

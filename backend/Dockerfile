@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     curl \
     pkg-config \
+    clang-format \
+    clang-tidy \
     && rm -rf /var/lib/apt/lists/*
 
 # OSRM Backend のインストール (Source Build)

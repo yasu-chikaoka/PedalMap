@@ -11,7 +11,7 @@ on:
 jobs:
   codeql-analysis:
     name: CodeQL Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       actions: read
       contents: read
@@ -20,20 +20,79 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'javascript-typescript' ]
-        # C++ is excluded for now due to complex dependencies (OSRM, Drogon) 
-        # that might be hard to satisfy in the standard CodeQL runner without custom build steps.
+        language: [ 'javascript-typescript', 'c-cpp' ]
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # C++ Build Dependencies (Only for c-cpp analysis)
+    - name: Cache OSRM and Drogon
+      if: matrix.language == 'c-cpp'
+      id: cache-deps
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/include/osrm
+          /usr/local/lib/libosrm*
+          /usr/local/include/drogon
+          /usr/local/lib/libdrogon*
+          /usr/local/lib/cmake/Drogon
+        key: ${{ runner.os }}-cpp-deps-v1
+
+    - name: Install System Dependencies
+      if: matrix.language == 'c-cpp'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+            build-essential cmake git libboost-all-dev libtbb-dev \
+            liblua5.3-dev libluabind-dev libstxxl-dev libxml2-dev \
+            libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
+            protobuf-compiler libjsoncpp-dev uuid-dev zlib1g-dev \
+            libssl-dev curl pkg-config
+
+    - name: Build OSRM
+      if: matrix.language == 'c-cpp' && steps.cache-deps.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        git clone https://github.com/Project-OSRM/osrm-backend.git
+        cd osrm-backend
+        git checkout v5.27.1
+        mkdir build && cd build
+        cmake .. -DENABLE_MASON=OFF
+        make -j$(nproc)
+        sudo make install
+
+    - name: Build Drogon
+      if: matrix.language == 'c-cpp' && steps.cache-deps.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        git clone https://github.com/drogonframework/drogon
+        cd drogon
+        git checkout v1.9.5
+        git submodule update --init
+        mkdir build && cd build
+        cmake ..
+        make -j$(nproc)
+        sudo make install
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
+        # For C++, we need to specify build command, but 'autobuild' might fail with custom deps
+        # so we will use manual build step if needed.
+        # However, for typical cmake projects, autobuild often works if deps are installed.
 
-    - name: Autobuild
+    - name: Build Backend (for CodeQL)
+      if: matrix.language == 'c-cpp'
+      run: |
+        cd backend
+        cmake -S . -B build
+        cmake --build build
+
+    - name: Autobuild (Frontend)
+      if: matrix.language == 'javascript-typescript'
       uses: github/codeql-action/autobuild@v3
 
     - name: Perform CodeQL Analysis
@@ -42,7 +101,7 @@ jobs:
         category: "/language:${{matrix.language}}"
 
   trivy-scan:
-    name: Trivy fs scan
+    name: Trivy Security Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -54,6 +113,21 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           trivy-config: trivy.yaml
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t cycling-backend:latest ./backend
+
+      - name: Run Trivy vulnerability scanner (Backend Image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: 'cycling-backend:latest'
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true

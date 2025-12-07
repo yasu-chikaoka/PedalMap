@@ -1,0 +1,16 @@
+---
+# Enable standard checks including:
+# - clang-diagnostic-*: Standard compiler warnings
+# - clang-analyzer-*: Static analysis checks
+# - bugprone-*: Checks for bug-prone code constructs
+# - modernize-*: Checks advocating for modern C++ features
+# - performance-*: Checks for performance improvement opportunities
+# - readability-*: Checks for code readability
+#
+# Exclude:
+# - modernize-use-trailing-return-type: Too verbose for standard functions
+Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,modernize-*,performance-*,readability-*,-modernize-use-trailing-return-type'
+WarningsAsErrors: ''
+HeaderFilterRegex: 'backend/.*'
+FormatStyle:     file
+...

@@ -65,6 +65,21 @@ void Route::generate(const HttpRequestPtr &req,
         targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
     }
 
+    // 経由地の取得
+    std::vector<osrm::util::Coordinate> waypoints;
+    if ((*jsonPtr).isMember("waypoints")) {
+        auto &wpArray = (*jsonPtr)["waypoints"];
+        if (wpArray.isArray()) {
+            for (const auto &wp : wpArray) {
+                if (wp.isMember("lat") && wp.isMember("lon")) {
+                    double lat = wp["lat"].asDouble();
+                    double lon = wp["lon"].asDouble();
+                    waypoints.push_back({osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat}});
+                }
+            }
+        }
+    }
+
     // OSRM ルートパラメータの設定
     osrm::RouteParameters params;
 
@@ -72,15 +87,22 @@ void Route::generate(const HttpRequestPtr &req,
     params.coordinates.push_back(
         {osrm::util::FloatLongitude{startLon}, osrm::util::FloatLatitude{startLat}});
 
-    // 距離調整ロジック: RouteService に委譲
-    if (targetDistanceKm > 0) {
-        auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon}, {endLat, endLon},
-                                                           targetDistanceKm);
+    if (!waypoints.empty()) {
+        // 経由地が指定されている場合は、それらを追加（距離調整ロジックはスキップ）
+        for (const auto &wp : waypoints) {
+            params.coordinates.push_back(wp);
+        }
+    } else {
+        // 距離調整ロジック: RouteService に委譲
+        if (targetDistanceKm > 0) {
+            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon}, {endLat, endLon},
+                                                               targetDistanceKm);
 
-        if (viaPoint) {
-            LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
-            params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
-                                          osrm::util::FloatLatitude{viaPoint->lat}});
+            if (viaPoint) {
+                LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
+                params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
+                                              osrm::util::FloatLatitude{viaPoint->lat}});
+            }
         }
     }
 

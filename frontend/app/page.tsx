@@ -5,6 +5,7 @@ import { MapPin, Navigation, Clock, Activity } from 'lucide-react';
 import { APIProvider, Map } from '@vis.gl/react-google-maps';
 import { RoutePolyline } from '@/components/RoutePolyline';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { WaypointsList } from '@/components/WaypointsList';
 
 // APIキー設定
 // ここにAPIキーを設定するか、環境変数 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を使用します
@@ -29,12 +30,19 @@ interface RouteResponse {
   stops?: Stop[];
 }
 
+interface Waypoint {
+  id: string;
+  name: string;
+  location: { lat: number; lng: number };
+}
+
 export default function Home() {
   const [startPoint, setStartPoint] = useState({
     lat: 35.681236,
     lng: 139.767125,
   }); // 東京駅
   const [endPoint, setEndPoint] = useState({ lat: 35.685175, lng: 139.7528 }); // 皇居
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [startPlaceName, setStartPlaceName] = useState('東京駅');
   const [endPlaceName, setEndPlaceName] = useState('皇居');
   const [targetDistance, setTargetDistance] = useState<number>(30); // デフォルト30km
@@ -59,6 +67,10 @@ export default function Home() {
           body: JSON.stringify({
             start_point: { lat: startPoint.lat, lon: startPoint.lng },
             end_point: { lat: endPoint.lat, lon: endPoint.lng },
+            waypoints: waypoints.map((wp) => ({
+              lat: wp.location.lat,
+              lon: wp.location.lng, // API expects 'lon'
+            })),
             preferences: {
               target_distance_km: targetDistance,
               target_elevation_gain_m: targetElevation,
@@ -178,6 +190,13 @@ export default function Home() {
                   </div>
                 )}
               </div>
+
+              <WaypointsList
+                waypoints={waypoints}
+                setWaypoints={setWaypoints}
+                apiKey={GOOGLE_MAPS_API_KEY}
+              />
+
               <div>
                 <label className="block text-sm text-gray-600 mb-1">End</label>
                 {hasApiKey ? (
