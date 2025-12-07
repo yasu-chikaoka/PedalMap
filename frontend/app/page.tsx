@@ -30,8 +30,11 @@ interface RouteResponse {
 }
 
 export default function Home() {
-  const [startPoint, setStartPoint] = useState({ lat: 35.681236, lng: 139.767125 }); // 東京駅
-  const [endPoint, setEndPoint] = useState({ lat: 35.685175, lng: 139.7528 });   // 皇居
+  const [startPoint, setStartPoint] = useState({
+    lat: 35.681236,
+    lng: 139.767125,
+  }); // 東京駅
+  const [endPoint, setEndPoint] = useState({ lat: 35.685175, lng: 139.7528 }); // 皇居
   const [startPlaceName, setStartPlaceName] = useState('東京駅');
   const [endPlaceName, setEndPlaceName] = useState('皇居');
   const [targetDistance, setTargetDistance] = useState<number>(30); // デフォルト30km
@@ -46,20 +49,23 @@ export default function Home() {
     setRouteData(null);
 
     try {
-      const response = await fetch('http://localhost:8080/api/v1/route/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          start_point: { lat: startPoint.lat, lon: startPoint.lng },
-          end_point: { lat: endPoint.lat, lon: endPoint.lng },
-          preferences: {
-            target_distance_km: targetDistance,
-            target_elevation_gain_m: targetElevation,
+      const response = await fetch(
+        'http://localhost:8080/api/v1/route/generate',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            start_point: { lat: startPoint.lat, lon: startPoint.lng },
+            end_point: { lat: endPoint.lat, lon: endPoint.lng },
+            preferences: {
+              target_distance_km: targetDistance,
+              target_elevation_gain_m: targetElevation,
+            },
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error('ルート検索に失敗しました');
@@ -68,37 +74,46 @@ export default function Home() {
       const data = await response.json();
       setRouteData(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+      setError(
+        err instanceof Error ? err.message : '予期せぬエラーが発生しました',
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStartPlaceSelect = useCallback((place: google.maps.places.PlaceResult) => {
-    if (place.geometry?.location) {
-      setStartPoint({
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-      });
-      if (place.name) {
-        setStartPlaceName(place.name);
+  const handleStartPlaceSelect = useCallback(
+    (place: google.maps.places.PlaceResult) => {
+      if (place.geometry?.location) {
+        setStartPoint({
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        });
+        if (place.name) {
+          setStartPlaceName(place.name);
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const handleEndPlaceSelect = useCallback((place: google.maps.places.PlaceResult) => {
-    if (place.geometry?.location) {
-      setEndPoint({
-        lat: place.geometry.location.lat(),
-        lng: place.geometry.location.lng(),
-      });
-      if (place.name) {
-        setEndPlaceName(place.name);
+  const handleEndPlaceSelect = useCallback(
+    (place: google.maps.places.PlaceResult) => {
+      if (place.geometry?.location) {
+        setEndPoint({
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        });
+        if (place.name) {
+          setEndPlaceName(place.name);
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const hasApiKey = GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE';
+  const hasApiKey =
+    GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE';
 
   // コンテンツ部分
   const controlPanelContent = (
@@ -116,7 +131,9 @@ export default function Home() {
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Start</label>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Start
+                </label>
                 {hasApiKey ? (
                   <PlaceAutocomplete
                     onPlaceSelect={handleStartPlaceSelect}
@@ -129,7 +146,12 @@ export default function Home() {
                     <input
                       type="number"
                       value={startPoint.lat}
-                      onChange={(e) => setStartPoint({ ...startPoint, lat: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        setStartPoint({
+                          ...startPoint,
+                          lat: parseFloat(e.target.value),
+                        })
+                      }
                       className="w-full p-2 border rounded text-sm"
                       step="0.000001"
                       placeholder="Lat"
@@ -137,7 +159,12 @@ export default function Home() {
                     <input
                       type="number"
                       value={startPoint.lng}
-                      onChange={(e) => setStartPoint({ ...startPoint, lng: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        setStartPoint({
+                          ...startPoint,
+                          lng: parseFloat(e.target.value),
+                        })
+                      }
                       className="w-full p-2 border rounded text-sm"
                       step="0.000001"
                       placeholder="Lng"
@@ -146,7 +173,8 @@ export default function Home() {
                 )}
                 {hasApiKey && (
                   <div className="text-xs text-gray-400 mt-1">
-                    Lat: {startPoint.lat.toFixed(6)}, Lng: {startPoint.lng.toFixed(6)}
+                    Lat: {startPoint.lat.toFixed(6)}, Lng:{' '}
+                    {startPoint.lng.toFixed(6)}
                   </div>
                 )}
               </div>
@@ -164,7 +192,12 @@ export default function Home() {
                     <input
                       type="number"
                       value={endPoint.lat}
-                      onChange={(e) => setEndPoint({ ...endPoint, lat: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        setEndPoint({
+                          ...endPoint,
+                          lat: parseFloat(e.target.value),
+                        })
+                      }
                       className="w-full p-2 border rounded text-sm"
                       step="0.000001"
                       placeholder="Lat"
@@ -172,7 +205,12 @@ export default function Home() {
                     <input
                       type="number"
                       value={endPoint.lng}
-                      onChange={(e) => setEndPoint({ ...endPoint, lng: parseFloat(e.target.value) })}
+                      onChange={(e) =>
+                        setEndPoint({
+                          ...endPoint,
+                          lng: parseFloat(e.target.value),
+                        })
+                      }
                       className="w-full p-2 border rounded text-sm"
                       step="0.000001"
                       placeholder="Lng"
@@ -181,29 +219,38 @@ export default function Home() {
                 )}
                 {hasApiKey && (
                   <div className="text-xs text-gray-400 mt-1">
-                    Lat: {endPoint.lat.toFixed(6)}, Lng: {endPoint.lng.toFixed(6)}
+                    Lat: {endPoint.lat.toFixed(6)}, Lng:{' '}
+                    {endPoint.lng.toFixed(6)}
                   </div>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">希望走行距離 (km)</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    希望走行距離 (km)
+                  </label>
                   <input
                     type="number"
                     value={targetDistance}
-                    onChange={(e) => setTargetDistance(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setTargetDistance(parseFloat(e.target.value) || 0)
+                    }
                     className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
                     min="5"
                     max="200"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">希望獲得標高 (m)</label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    希望獲得標高 (m)
+                  </label>
                   <input
                     type="number"
                     value={targetElevation}
-                    onChange={(e) => setTargetElevation(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setTargetElevation(parseFloat(e.target.value) || 0)
+                    }
                     className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
                     min="0"
                     max="3000"
@@ -237,23 +284,31 @@ export default function Home() {
 
         {routeData && (
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
-            <h3 className="font-bold text-green-800 border-b border-green-200 pb-2">ルート生成結果</h3>
+            <h3 className="font-bold text-green-800 border-b border-green-200 pb-2">
+              ルート生成結果
+            </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-gray-500 uppercase">Total Distance</p>
+                <p className="text-xs text-gray-500 uppercase">
+                  Total Distance
+                </p>
                 <p className="text-xl font-mono font-bold text-gray-800">
-                  {(routeData.summary.total_distance_m / 1000).toFixed(2)} <span className="text-sm font-normal">km</span>
+                  {(routeData.summary.total_distance_m / 1000).toFixed(2)}{' '}
+                  <span className="text-sm font-normal">km</span>
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase">Est. Time</p>
                 <p className="text-xl font-mono font-bold text-gray-800 flex items-center gap-1">
                   <Clock size={16} className="text-gray-400" />
-                  {Math.floor(routeData.summary.estimated_moving_time_s / 60)} <span className="text-sm font-normal">min</span>
+                  {Math.floor(
+                    routeData.summary.estimated_moving_time_s / 60,
+                  )}{' '}
+                  <span className="text-sm font-normal">min</span>
                 </p>
               </div>
             </div>
-            
+
             {routeData.stops && routeData.stops.length > 0 && (
               <div className="mt-4 border-t border-green-200 pt-3">
                 <h4 className="font-semibold text-green-800 mb-2 text-sm flex items-center gap-1">
@@ -261,11 +316,18 @@ export default function Home() {
                 </h4>
                 <ul className="space-y-2">
                   {routeData.stops.map((stop, i) => (
-                    <li key={i} className="bg-white p-2 rounded border border-gray-100 text-sm shadow-sm">
+                    <li
+                      key={i}
+                      className="bg-white p-2 rounded border border-gray-100 text-sm shadow-sm"
+                    >
                       <div className="font-bold text-gray-700">{stop.name}</div>
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded capitalize">{stop.type}</span>
-                        <span className="flex items-center gap-0.5 text-orange-500 font-bold">★ {stop.rating}</span>
+                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded capitalize">
+                          {stop.type}
+                        </span>
+                        <span className="flex items-center gap-0.5 text-orange-500 font-bold">
+                          ★ {stop.rating}
+                        </span>
                       </div>
                     </li>
                   ))}
@@ -281,7 +343,10 @@ export default function Home() {
   return (
     <div className="flex h-screen w-full flex-col md:flex-row">
       {hasApiKey ? (
-        <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'geometry']}>
+        <APIProvider
+          apiKey={GOOGLE_MAPS_API_KEY}
+          libraries={['places', 'geometry']}
+        >
           {controlPanelContent}
           <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
             <Map
@@ -291,7 +356,9 @@ export default function Home() {
               gestureHandling={'greedy'}
               disableDefaultUI={true}
             >
-              {routeData?.geometry && <RoutePolyline encodedGeometry={routeData.geometry} />}
+              {routeData?.geometry && (
+                <RoutePolyline encodedGeometry={routeData.geometry} />
+              )}
             </Map>
           </div>
         </APIProvider>
@@ -301,19 +368,34 @@ export default function Home() {
           <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
             <div className="text-center p-8">
               <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-              <h2 className="text-xl font-semibold text-gray-600">Google Maps Area</h2>
-              <p className="text-gray-500 mt-2">APIキーが設定されていません。</p>
+              <h2 className="text-xl font-semibold text-gray-600">
+                Google Maps Area
+              </h2>
+              <p className="text-gray-500 mt-2">
+                APIキーが設定されていません。
+              </p>
               <p className="text-sm text-gray-400 mt-4">
-                <code>.env.local</code> に <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> を設定すると地図と地名検索が有効になります。
+                <code>.env.local</code> に{' '}
+                <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>{' '}
+                を設定すると地図と地名検索が有効になります。
               </p>
             </div>
           </div>
         </>
       )}
-      
+
       {/* Footer / Attribution */}
       <div className="absolute bottom-0 right-0 bg-white/80 px-2 py-1 text-[10px] text-gray-500 z-0 pointer-events-none">
-        Map data © Google, Route data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="pointer-events-auto hover:underline">OpenStreetMap</a> contributors
+        Map data © Google, Route data ©{' '}
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noreferrer"
+          className="pointer-events-auto hover:underline"
+        >
+          OpenStreetMap
+        </a>{' '}
+        contributors
       </div>
     </div>
   );
