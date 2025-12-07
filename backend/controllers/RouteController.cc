@@ -1,36 +1,35 @@
 #include "RouteController.h"
-#include "services/RouteService.h"
-#include <osrm/route_parameters.hpp>
+
+#include <iostream>
+#include <osrm/coordinate.hpp>
+#include <osrm/json_container.hpp>
 #include <osrm/match_parameters.hpp>
 #include <osrm/nearest_parameters.hpp>
-#include <osrm/table_parameters.hpp>
-#include <osrm/coordinate.hpp>
+#include <osrm/route_parameters.hpp>
 #include <osrm/status.hpp>
-#include <osrm/json_container.hpp>
-#include <iostream>
+#include <osrm/table_parameters.hpp>
+
+#include "services/RouteService.h"
 
 using namespace api::v1;
 using namespace services;
 
-Route::Route()
-{
+Route::Route() {
     // OSRM エンジンの初期化
     osrm::EngineConfig config;
-    config.storage_config = { "/data/kanto-latest.osrm" };
+    config.storage_config = {"/data/kanto-latest.osrm"};
     config.use_shared_memory = false;
     // アルゴリズムは CH (Contraction Hierarchies) または MLD (Multi-Level Dijkstra)
     // ここでは CH を使用（前処理で osrm-contract を実行したため）
     config.algorithm = osrm::EngineConfig::Algorithm::CH;
-    
+
     osrm_ = std::make_unique<osrm::OSRM>(config);
 }
 
 void Route::generate(const HttpRequestPtr &req,
-                     std::function<void(const HttpResponsePtr &)> &&callback)
-{
+                     std::function<void(const HttpResponsePtr &)> &&callback) {
     auto jsonPtr = req->getJsonObject();
-    if (!jsonPtr)
-    {
+    if (!jsonPtr) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Invalid JSON format");
@@ -41,7 +40,7 @@ void Route::generate(const HttpRequestPtr &req,
     // リクエストパラメータの解析 (簡易版: start, end のみ)
     // 本来は preferences (標高, 距離) を考慮した独自ロジックが必要だが、
     // まずは単純な A -> B ルート検索を実装して疎通確認を行う。
-    
+
     // JSON解析のエラーハンドリングが必要だが、まずは動くコードを書く
     if (!(*jsonPtr).isMember("start_point") || !(*jsonPtr).isMember("end_point")) {
         auto resp = HttpResponse::newHttpResponse();
@@ -56,35 +55,37 @@ void Route::generate(const HttpRequestPtr &req,
     double endLat = (*jsonPtr)["end_point"]["lat"].asDouble();
     double endLon = (*jsonPtr)["end_point"]["lon"].asDouble();
 
-    LOG_DEBUG << "Request: Start(" << startLat << ", " << startLon << ") End(" << endLat << ", " << endLon << ")";
+    LOG_DEBUG << "Request: Start(" << startLat << ", " << startLon << ") End(" << endLat << ", "
+              << endLon << ")";
 
     // 追加パラメータの取得
     double targetDistanceKm = 0.0;
-    if ((*jsonPtr).isMember("preferences") && (*jsonPtr)["preferences"].isMember("target_distance_km")) {
+    if ((*jsonPtr).isMember("preferences") &&
+        (*jsonPtr)["preferences"].isMember("target_distance_km")) {
         targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
     }
 
     // OSRM ルートパラメータの設定
     osrm::RouteParameters params;
-    
+
     // 座標は (Longitude, Latitude) の順序 (GeoJSON準拠)
-    params.coordinates.push_back({osrm::util::FloatLongitude{startLon}, osrm::util::FloatLatitude{startLat}});
+    params.coordinates.push_back(
+        {osrm::util::FloatLongitude{startLon}, osrm::util::FloatLatitude{startLat}});
 
     // 距離調整ロジック: RouteService に委譲
     if (targetDistanceKm > 0) {
-        auto viaPoint = RouteService::calculateDetourPoint(
-            {startLat, startLon},
-            {endLat, endLon},
-            targetDistanceKm
-        );
+        auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon}, {endLat, endLon},
+                                                           targetDistanceKm);
 
         if (viaPoint) {
             LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
-            params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon}, osrm::util::FloatLatitude{viaPoint->lat}});
+            params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
+                                          osrm::util::FloatLatitude{viaPoint->lat}});
         }
     }
 
-    params.coordinates.push_back({osrm::util::FloatLongitude{endLon}, osrm::util::FloatLatitude{endLat}});
+    params.coordinates.push_back(
+        {osrm::util::FloatLongitude{endLon}, osrm::util::FloatLatitude{endLat}});
 
     // ジオメトリ（形状）を取得
     params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
@@ -97,11 +98,9 @@ void Route::generate(const HttpRequestPtr &req,
 
     Json::Value respJson;
 
-    if (status == osrm::Status::Ok)
-    {
+    if (status == osrm::Status::Ok) {
         auto &routes = result.values["routes"].get<osrm::json::Array>();
-        if (!routes.values.empty())
-        {
+        if (!routes.values.empty()) {
             auto &route = routes.values[0].get<osrm::json::Object>();
             auto distance = route.values["distance"].get<osrm::json::Number>().value;
             auto duration = route.values["duration"].get<osrm::json::Number>().value;
@@ -110,9 +109,9 @@ void Route::generate(const HttpRequestPtr &req,
             respJson["summary"]["total_distance_m"] = distance;
             respJson["summary"]["estimated_moving_time_s"] = duration;
             respJson["geometry"] = geometry;
-            
+
             // TODO: ここで獲得標高などの詳細情報を付加する
-            
+
             // 周辺店舗検索ロジック (ダミーデータ生成)
             // 中間地点付近にスポットを追加
             if (routes.values[0].get<osrm::json::Object>().values.count("legs")) {
@@ -138,9 +137,7 @@ void Route::generate(const HttpRequestPtr &req,
                 respJson["stops"].append(stop2);
             }
         }
-    }
-    else
-    {
+    } else {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Route calculation failed");

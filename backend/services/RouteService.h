@@ -1,7 +1,7 @@
 #pragma once
 
-#include <utility>
 #include <optional>
+#include <utility>
 
 namespace services {
 
@@ -11,12 +11,10 @@ struct Coordinate {
 };
 
 class RouteService {
-public:
-    static std::optional<Coordinate> calculateDetourPoint(
-        const Coordinate& start, 
-        const Coordinate& end, 
-        double targetDistanceKm
-    );
+   public:
+    static std::optional<Coordinate> calculateDetourPoint(const Coordinate& start,
+                                                          const Coordinate& end,
+                                                          double targetDistanceKm);
 };
 
-} // namespace services
+}  // namespace services
