@@ -1,0 +1,22 @@
+# OSRM Data
+osrm-data/*.pbf
+osrm-data/*.osrm*
+osrm-data/bicycle.lua
+osrm-data/lib/
+
+# Backend Build
+backend/build/
+backend/uploads/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# System
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/

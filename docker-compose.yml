@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cycling-backend
+    volumes:
+      - ./backend:/app
+      - ./osrm-data:/data
+    ports:
+      - "8080:8080"
+    working_dir: /app
+    # 開発中はコンテナを常駐させるため、tty: true で起動維持させる。
+    tty: true
+    command: /bin/bash
+
+  frontend:
+    image: node:20-alpine
+    container_name: cycling-frontend
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    tty: true
+    command: /bin/sh
