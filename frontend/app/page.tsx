@@ -279,6 +279,11 @@ export default function Home() {
           </div>
         </>
       )}
+      
+      {/* Footer / Attribution */}
+      <div className="absolute bottom-0 right-0 bg-white/80 px-2 py-1 text-[10px] text-gray-500 z-0 pointer-events-none">
+        Map data © Google, Route data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="pointer-events-auto hover:underline">OpenStreetMap</a> contributors
+      </div>
     </div>
   );
 }

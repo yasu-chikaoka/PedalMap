@@ -109,6 +109,20 @@ sudo docker compose exec -d frontend npm run dev
 *   **Roo Code**: アーキテクチャ設計、コード生成、デバッグ支援
 *   **Google Gemini**: 技術的な意思決定支援、ドキュメント作成
 
-## 📜 ライセンス
+## 📜 ライセンス (License)
 
+### 本アプリケーションのライセンス
 MIT License
+
+### 使用しているオープンソースライセンス
+本プロジェクトでは、以下のオープンソースソフトウェアおよびデータを使用しています。
+
+*   **OpenStreetMap Data**: © OpenStreetMap contributors (ODbL License)
+    *   本アプリケーションのルートデータは OpenStreetMap のデータに基づいています。
+*   **Project-OSRM**: BSD 2-Clause License
+*   **Drogon**: MIT License
+*   **Next.js / React**: MIT License
+*   **Lucide React**: ISC License
+
+### Google Maps Platform
+本アプリケーションは Google Maps Platform の API を使用しています。利用に際しては Google Maps Platform の利用規約に従ってください。
