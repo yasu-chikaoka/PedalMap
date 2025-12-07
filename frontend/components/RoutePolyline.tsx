@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface RoutePolylineProps {
@@ -8,14 +8,14 @@ interface RoutePolylineProps {
 export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
   const map = useMap();
   const geometryLibrary = useMapsLibrary('geometry');
-  const [polyline, setPolyline] = useState<google.maps.Polyline | null>(null);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   useEffect(() => {
     if (!map || !geometryLibrary) return;
 
     // 既存のPolylineがあれば削除
-    if (polyline) {
-      polyline.setMap(null);
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
     }
 
     const path = geometryLibrary.encoding.decodePath(encodedGeometry);
@@ -29,7 +29,7 @@ export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
     });
 
     newPolyline.setMap(map);
-    setPolyline(newPolyline);
+    polylineRef.current = newPolyline;
 
     // ルート全体が見えるようにズーム調整
     const bounds = new google.maps.LatLngBounds();

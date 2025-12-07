@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, memo } from 'react';
+import { useRef, useEffect, memo } from 'react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface PlaceAutocompleteProps {
@@ -10,8 +10,6 @@ interface PlaceAutocompleteProps {
 
 export const PlaceAutocomplete = memo(
   ({ onPlaceSelect, placeholder, value, onChange }: PlaceAutocompleteProps) => {
-    const [placeAutocomplete, setPlaceAutocomplete] =
-      useState<google.maps.places.Autocomplete | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const places = useMapsLibrary('places');
 
@@ -24,9 +22,8 @@ export const PlaceAutocomplete = memo(
       };
 
       const autocomplete = new places.Autocomplete(inputRef.current, options);
-      setPlaceAutocomplete(autocomplete);
 
-      const listener = autocomplete.addListener('place_changed', () => {
+      autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
         console.log('PlaceAutocomplete selected:', place);
 
