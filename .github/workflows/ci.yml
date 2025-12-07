@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  # Frontend Jobs
+  frontend-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  # Backend Jobs
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake & GTest
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libgtest-dev
+
+      - name: Configure CMake (Test Only)
+        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: |
+          cd build
+          ctest --output-on-failure
+
+  backend-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Check Formatting
+        run: |
+          # Check backend source files
+          find backend -name "*.cc" -o -name "*.h" | xargs clang-format --dry-run --Werror -style=file:.clang-format

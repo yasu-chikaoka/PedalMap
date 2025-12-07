@@ -1,5 +1,8 @@
 # PedalMap - Cycling Route Generator
 
+![CI](https://github.com/yasu-chikaoka/PedalMap/actions/workflows/ci.yml/badge.svg)
+![Security Scan](https://github.com/yasu-chikaoka/PedalMap/actions/workflows/security.yml/badge.svg)
+
 PedalMapは、サイクリスト向けのルート自動生成Webアプリケーションです。
 出発地と目的地を指定するだけで、自転車に最適化されたルートを瞬時に計算し、周辺のおすすめスポットと共に提案します。
 
@@ -126,3 +129,39 @@ MIT License
 
 ### Google Maps Platform
 本アプリケーションは Google Maps Platform の API を使用しています。利用に際しては Google Maps Platform の利用規約に従ってください。
+
+## 🧪 CI/CD & Testing
+
+このプロジェクトでは、品質保証のために GitHub Actions を使用して以下のチェックを自動化しています。
+
+### CI Workflow (`ci.yml`)
+Push および Pull Request 時に実行されます。
+
+*   **Frontend**:
+    *   Lint (`eslint`)
+    *   Format Check (`prettier`)
+    *   Unit Test (`jest`)
+    *   Build Check (`next build`)
+*   **Backend**:
+    *   Unit Test (`gtest`) - 外部依存を排除したロジックテスト
+    *   Format Check (`clang-format`)
+
+### Security Workflow (`security.yml`)
+*   **CodeQL**: コードの脆弱性解析（静的解析）
+*   **Trivy**: ファイルシステムの脆弱性スキャン
+
+### ローカルでのテスト実行方法
+
+**Frontend**:
+```bash
+# フロントエンドコンテナで実行
+docker compose run --rm frontend npm test
+docker compose run --rm frontend npm run lint
+```
+
+**Backend (Unit Test)**:
+ローカル開発環境（コンテナ内）で実行する場合：
+```bash
+# テストのビルドと実行
+docker compose run --rm backend bash -c "mkdir -p build && cd build && cmake -DBUILD_TESTS_ONLY=ON .. && make && ctest --output-on-failure"
+```
