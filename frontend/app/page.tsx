@@ -34,6 +34,8 @@ export default function Home() {
   const [endPoint, setEndPoint] = useState({ lat: 35.685175, lng: 139.7528 });   // 皇居
   const [startPlaceName, setStartPlaceName] = useState('東京駅');
   const [endPlaceName, setEndPlaceName] = useState('皇居');
+  const [targetDistance, setTargetDistance] = useState<number>(30); // デフォルト30km
+  const [targetElevation, setTargetElevation] = useState<number>(200); // デフォルト200m
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,10 @@ export default function Home() {
         body: JSON.stringify({
           start_point: { lat: startPoint.lat, lon: startPoint.lng },
           end_point: { lat: endPoint.lat, lon: endPoint.lng },
+          preferences: {
+            target_distance_km: targetDistance,
+            target_elevation_gain_m: targetElevation,
+          },
         }),
       });
 
@@ -94,8 +100,8 @@ export default function Home() {
 
   const hasApiKey = GOOGLE_MAPS_API_KEY && GOOGLE_MAPS_API_KEY !== 'YOUR_API_KEY_HERE';
 
-  // コンテンツ部分 (APIProviderでラップするかどうかで分岐するためコンポーネント化推奨だが、ここでは変数として扱う)
-  const ControlPanel = () => (
+  // コンテンツ部分
+  const controlPanelContent = (
     <div className="w-full md:w-1/3 p-6 bg-white shadow-lg z-10 overflow-y-auto h-full">
       <h1 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
         <Activity className="text-blue-600" />
@@ -179,6 +185,31 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">希望走行距離 (km)</label>
+                  <input
+                    type="number"
+                    value={targetDistance}
+                    onChange={(e) => setTargetDistance(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
+                    min="5"
+                    max="200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">希望獲得標高 (m)</label>
+                  <input
+                    type="number"
+                    value={targetElevation}
+                    onChange={(e) => setTargetElevation(parseFloat(e.target.value) || 0)}
+                    className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
+                    min="0"
+                    max="3000"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -251,7 +282,7 @@ export default function Home() {
     <div className="flex h-screen w-full flex-col md:flex-row">
       {hasApiKey ? (
         <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'geometry']}>
-          <ControlPanel />
+          {controlPanelContent}
           <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
             <Map
               className="w-full h-full"
@@ -266,7 +297,7 @@ export default function Home() {
         </APIProvider>
       ) : (
         <>
-          <ControlPanel />
+          {controlPanelContent}
           <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
             <div className="text-center p-8">
               <MapPin size={48} className="mx-auto text-gray-400 mb-4" />

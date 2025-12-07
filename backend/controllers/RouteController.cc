@@ -1,4 +1,5 @@
 #include "RouteController.h"
+#include "services/RouteService.h"
 #include <osrm/route_parameters.hpp>
 #include <osrm/match_parameters.hpp>
 #include <osrm/nearest_parameters.hpp>
@@ -9,6 +10,7 @@
 #include <iostream>
 
 using namespace api::v1;
+using namespace services;
 
 Route::Route()
 {
@@ -54,11 +56,34 @@ void Route::generate(const HttpRequestPtr &req,
     double endLat = (*jsonPtr)["end_point"]["lat"].asDouble();
     double endLon = (*jsonPtr)["end_point"]["lon"].asDouble();
 
+    LOG_DEBUG << "Request: Start(" << startLat << ", " << startLon << ") End(" << endLat << ", " << endLon << ")";
+
+    // 追加パラメータの取得
+    double targetDistanceKm = 0.0;
+    if ((*jsonPtr).isMember("preferences") && (*jsonPtr)["preferences"].isMember("target_distance_km")) {
+        targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
+    }
+
     // OSRM ルートパラメータの設定
     osrm::RouteParameters params;
     
     // 座標は (Longitude, Latitude) の順序 (GeoJSON準拠)
     params.coordinates.push_back({osrm::util::FloatLongitude{startLon}, osrm::util::FloatLatitude{startLat}});
+
+    // 距離調整ロジック: RouteService に委譲
+    if (targetDistanceKm > 0) {
+        auto viaPoint = RouteService::calculateDetourPoint(
+            {startLat, startLon},
+            {endLat, endLon},
+            targetDistanceKm
+        );
+
+        if (viaPoint) {
+            LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
+            params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon}, osrm::util::FloatLatitude{viaPoint->lat}});
+        }
+    }
+
     params.coordinates.push_back({osrm::util::FloatLongitude{endLon}, osrm::util::FloatLatitude{endLat}});
 
     // ジオメトリ（形状）を取得

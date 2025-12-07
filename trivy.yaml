@@ -1,0 +1,7 @@
+skip-dirs:
+  - ".vscode"
+  - ".git"
+  - "node_modules"
+  - "backend/build"
+  - "frontend/.next"
+  - "frontend/out"
