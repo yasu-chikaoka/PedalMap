@@ -9,7 +9,7 @@ TEST(RouteServiceTest, CalculateDetourPoint_NoDetourNeeded) {
     // NOLINTNEXTLINE(readability-magic-numbers)
     Coordinate start{35.681236, 139.767125};  // 東京駅
     // NOLINTNEXTLINE(readability-magic-numbers)
-    Coordinate end{35.685175, 139.7528};      // 皇居
+    Coordinate end{35.685175, 139.7528};  // 皇居
 
     // 直線距離は約1.5km程度
     // 目標距離1km（直線より短い）
