@@ -14,6 +14,113 @@
 using namespace api::v1;
 using namespace services;
 
+namespace {
+const double kLocationOffset = 0.001;
+const double kRatingCafe = 4.5;
+const double kRatingRestaurant = 4.2;
+const double kAverageDivisor = 2.0;
+
+std::vector<osrm::util::Coordinate> parseWaypoints(const std::shared_ptr<Json::Value> &jsonPtr) {
+    std::vector<osrm::util::Coordinate> waypoints;
+    if (jsonPtr->isMember("waypoints")) {
+        const auto &wpArray = (*jsonPtr)["waypoints"];
+        if (wpArray.isArray()) {
+            for (const auto &waypoint : wpArray) {
+                if (waypoint.isMember("lat") && waypoint.isMember("lon")) {
+                    double lat = waypoint["lat"].asDouble();
+                    double lon = waypoint["lon"].asDouble();
+                    waypoints.emplace_back(
+                        osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat});
+                }
+            }
+        }
+    }
+    return waypoints;
+}
+
+osrm::RouteParameters buildRouteParameters(double startLat, double startLon, double endLat,
+                                           double endLon, double targetDistanceKm,
+                                           const std::vector<osrm::util::Coordinate> &waypoints) {
+    osrm::RouteParameters params;
+    params.coordinates.emplace_back(osrm::util::FloatLongitude{startLon},
+                                    osrm::util::FloatLatitude{startLat});
+
+    if (!waypoints.empty()) {
+        for (const auto &waypoint : waypoints) {
+            params.coordinates.emplace_back(waypoint);
+        }
+    } else {
+        if (targetDistanceKm > 0) {
+            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon},
+                                                               {endLat, endLon}, targetDistanceKm);
+
+            if (viaPoint) {
+                LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
+                params.coordinates.emplace_back(osrm::util::FloatLongitude{viaPoint->lon},
+                                                osrm::util::FloatLatitude{viaPoint->lat});
+            }
+        }
+    }
+
+    params.coordinates.emplace_back(osrm::util::FloatLongitude{endLon},
+                                    osrm::util::FloatLatitude{endLat});
+
+    params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
+    params.overview = osrm::RouteParameters::OverviewType::Full;
+    params.steps = true;
+    return params;
+}
+
+struct Location {
+    double lat;
+    double lon;
+};
+
+Json::Value createResponseJson(const osrm::json::Object &result, Location start, Location end) {
+    Json::Value respJson;
+    if (!result.values.contains("routes")) {
+        return respJson;
+    }
+    const auto &routes = result.values.at("routes").get<osrm::json::Array>();
+
+    if (!routes.values.empty()) {
+        const auto &route = routes.values[0].get<osrm::json::Object>();
+        auto distance = route.values.at("distance").get<osrm::json::Number>().value;
+        auto duration = route.values.at("duration").get<osrm::json::Number>().value;
+        auto geometry = route.values.at("geometry").get<osrm::json::String>().value;
+
+        respJson["summary"]["total_distance_m"] = distance;
+        respJson["summary"]["estimated_moving_time_s"] = duration;
+        respJson["geometry"] = geometry;
+
+        // Spot search logic (dummy data generation)
+        if (routes.values[0].get<osrm::json::Object>().values.contains("legs")) {
+            double midLat = (start.lat + end.lat) / kAverageDivisor;
+            double midLon = (start.lon + end.lon) / kAverageDivisor;
+
+            Json::Value stop1;
+            stop1["name"] = "Cycling Cafe Base";
+            stop1["type"] = "cafe";
+            stop1["location"]["lat"] = midLat + kLocationOffset;
+            stop1["location"]["lon"] = midLon + kLocationOffset;
+            stop1["rating"] = kRatingCafe;
+
+            Json::Value stop2;
+            stop2["name"] = "Ramen Energy";
+            stop2["type"] = "restaurant";
+            stop2["location"]["lat"] = midLat - kLocationOffset;
+            stop2["location"]["lon"] = midLon - kLocationOffset;
+            stop2["rating"] = kRatingRestaurant;
+
+            respJson["stops"].append(stop1);
+            respJson["stops"].append(stop2);
+        }
+    }
+    return respJson;
+}
+
+}  // namespace
+
 Route::Route() {
     // OSRM エンジンの初期化
     osrm::EngineConfig config;
@@ -37,12 +144,7 @@ void Route::generate(const HttpRequestPtr &req,
         return;
     }
 
-    // リクエストパラメータの解析 (簡易版: start, end のみ)
-    // 本来は preferences (標高, 距離) を考慮した独自ロジックが必要だが、
-    // まずは単純な A -> B ルート検索を実装して疎通確認を行う。
-
-    // JSON解析のエラーハンドリングが必要だが、まずは動くコードを書く
-    if (!(*jsonPtr).isMember("start_point") || !(*jsonPtr).isMember("end_point")) {
+    if (!jsonPtr->isMember("start_point") || !jsonPtr->isMember("end_point")) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Missing start_point or end_point");
@@ -58,115 +160,29 @@ void Route::generate(const HttpRequestPtr &req,
     LOG_DEBUG << "Request: Start(" << startLat << ", " << startLon << ") End(" << endLat << ", "
               << endLon << ")";
 
-    // 追加パラメータの取得
     double targetDistanceKm = 0.0;
-    if ((*jsonPtr).isMember("preferences") &&
+    if (jsonPtr->isMember("preferences") &&
         (*jsonPtr)["preferences"].isMember("target_distance_km")) {
         targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
     }
 
-    // 経由地の取得
-    std::vector<osrm::util::Coordinate> waypoints;
-    if ((*jsonPtr).isMember("waypoints")) {
-        auto &wpArray = (*jsonPtr)["waypoints"];
-        if (wpArray.isArray()) {
-            for (const auto &wp : wpArray) {
-                if (wp.isMember("lat") && wp.isMember("lon")) {
-                    double lat = wp["lat"].asDouble();
-                    double lon = wp["lon"].asDouble();
-                    waypoints.push_back(
-                        {osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat}});
-                }
-            }
-        }
-    }
+    std::vector<osrm::util::Coordinate> waypoints = parseWaypoints(jsonPtr);
 
-    // OSRM ルートパラメータの設定
-    osrm::RouteParameters params;
+    osrm::RouteParameters params = buildRouteParameters(startLat, startLon, endLat, endLon,
+                                                        targetDistanceKm, waypoints);
 
-    // 座標は (Longitude, Latitude) の順序 (GeoJSON準拠)
-    params.coordinates.push_back(
-        {osrm::util::FloatLongitude{startLon}, osrm::util::FloatLatitude{startLat}});
-
-    if (!waypoints.empty()) {
-        // 経由地が指定されている場合は、それらを追加（距離調整ロジックはスキップ）
-        for (const auto &wp : waypoints) {
-            params.coordinates.push_back(wp);
-        }
-    } else {
-        // 距離調整ロジック: RouteService に委譲
-        if (targetDistanceKm > 0) {
-            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon},
-                                                               {endLat, endLon}, targetDistanceKm);
-
-            if (viaPoint) {
-                LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
-                params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
-                                              osrm::util::FloatLatitude{viaPoint->lat}});
-            }
-        }
-    }
-
-    params.coordinates.push_back(
-        {osrm::util::FloatLongitude{endLon}, osrm::util::FloatLatitude{endLat}});
-
-    // ジオメトリ（形状）を取得
-    params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
-    params.overview = osrm::RouteParameters::OverviewType::Full;
-    params.steps = true;
-
-    // ルート計算実行
     osrm::json::Object result;
     const auto status = osrm_->Route(params, result);
 
-    Json::Value respJson;
-
-    if (status == osrm::Status::Ok) {
-        auto &routes = result.values["routes"].get<osrm::json::Array>();
-        if (!routes.values.empty()) {
-            auto &route = routes.values[0].get<osrm::json::Object>();
-            auto distance = route.values["distance"].get<osrm::json::Number>().value;
-            auto duration = route.values["duration"].get<osrm::json::Number>().value;
-            auto geometry = route.values["geometry"].get<osrm::json::String>().value;
-
-            respJson["summary"]["total_distance_m"] = distance;
-            respJson["summary"]["estimated_moving_time_s"] = duration;
-            respJson["geometry"] = geometry;
-
-            // TODO: ここで獲得標高などの詳細情報を付加する
-
-            // 周辺店舗検索ロジック (ダミーデータ生成)
-            // 中間地点付近にスポットを追加
-            if (routes.values[0].get<osrm::json::Object>().values.count("legs")) {
-                // 実際はステップから座標を取得して検索するが、ここでは簡易的にstart/endの中点を基準にする
-                double midLat = (startLat + endLat) / 2.0;
-                double midLon = (startLon + endLon) / 2.0;
-
-                Json::Value stop1;
-                stop1["name"] = "Cycling Cafe Base";
-                stop1["type"] = "cafe";
-                stop1["location"]["lat"] = midLat + 0.001;
-                stop1["location"]["lon"] = midLon + 0.001;
-                stop1["rating"] = 4.5;
-
-                Json::Value stop2;
-                stop2["name"] = "Ramen Energy";
-                stop2["type"] = "restaurant";
-                stop2["location"]["lat"] = midLat - 0.001;
-                stop2["location"]["lon"] = midLon - 0.001;
-                stop2["rating"] = 4.2;
-
-                respJson["stops"].append(stop1);
-                respJson["stops"].append(stop2);
-            }
-        }
-    } else {
+    if (status != osrm::Status::Ok) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Route calculation failed");
         callback(resp);
         return;
     }
+
+    Json::Value respJson = createResponseJson(result, {startLat, startLon}, {endLat, endLon});
 
     auto resp = HttpResponse::newHttpJsonResponse(respJson);
     callback(resp);

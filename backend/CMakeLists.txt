@@ -29,6 +29,7 @@ endif()
 include_directories(
     /usr/local/include
     /usr/local/include/osrm
+    /usr/include/jsoncpp
     .
     controllers
     services

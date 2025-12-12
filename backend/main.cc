@@ -5,8 +5,9 @@
 int main() {
     std::cout << "Starting Cycling Backend Server..." << std::endl;
 
+    const int kPort = 8080;
     // Set HTTP listener address and port
-    drogon::app().addListener("0.0.0.0", 8080);
+    drogon::app().addListener("0.0.0.0", kPort);
 
     // Enable logging
     drogon::app().setLogLevel(trantor::Logger::kDebug);
