@@ -50,7 +50,21 @@ jobs:
       - name: Install CMake, GTest & Clang-Tidy
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libgtest-dev clang-tidy
+          sudo apt-get install -y cmake libgtest-dev clang-tidy \
+            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
+            libosrm-dev libboost-all-dev libtbb-dev
+
+      - name: Install Drogon
+        run: |
+          git clone https://github.com/drogonframework/drogon
+          cd drogon
+          git checkout v1.9.5
+          git submodule update --init
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(nproc)
+          sudo make install
 
       - name: Configure CMake (Test Only)
         run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
