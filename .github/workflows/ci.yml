@@ -40,7 +40,7 @@ jobs:
 
   # Backend Jobs
   backend-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: ./backend
@@ -52,7 +52,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake libgtest-dev clang-tidy \
             libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
-            libosrm-dev libboost-all-dev libtbb-dev
+            libboost-all-dev libtbb-dev liblua5.3-dev libluabind-dev libstxxl-dev \
+            libxml2-dev libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
+            protobuf-compiler pkg-config
+
+      - name: Install OSRM Backend
+        run: |
+          git clone https://github.com/Project-OSRM/osrm-backend.git
+          cd osrm-backend
+          git checkout v5.27.1
+          mkdir build
+          cd build
+          cmake .. -DENABLE_MASON=OFF
+          make -j$(nproc)
+          sudo make install
 
       - name: Install Drogon
         run: |
@@ -84,7 +97,7 @@ jobs:
           ctest --output-on-failure
 
   backend-format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
