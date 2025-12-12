@@ -68,3 +68,6 @@ target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
 )
+
+include(GoogleTest)
+gtest_discover_tests(cycling_backend_test)

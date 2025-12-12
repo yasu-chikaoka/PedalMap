@@ -29,8 +29,8 @@ std::vector<osrm::util::Coordinate> parseWaypoints(const std::shared_ptr<Json::V
                 if (waypoint.isMember("lat") && waypoint.isMember("lon")) {
                     double lat = waypoint["lat"].asDouble();
                     double lon = waypoint["lon"].asDouble();
-                    waypoints.emplace_back(
-                        osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat});
+                    waypoints.emplace_back(osrm::util::FloatLongitude{lon},
+                                           osrm::util::FloatLatitude{lat});
                 }
             }
         }
@@ -168,8 +168,8 @@ void Route::generate(const HttpRequestPtr &req,
 
     std::vector<osrm::util::Coordinate> waypoints = parseWaypoints(jsonPtr);
 
-    osrm::RouteParameters params = buildRouteParameters(startLat, startLon, endLat, endLon,
-                                                        targetDistanceKm, waypoints);
+    osrm::RouteParameters params =
+        buildRouteParameters(startLat, startLon, endLat, endLon, targetDistanceKm, waypoints);
 
     osrm::json::Object result;
     const auto status = osrm_->Route(params, result);
