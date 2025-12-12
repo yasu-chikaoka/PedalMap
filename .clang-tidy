@@ -13,4 +13,3 @@ Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,modernize-*,per
 WarningsAsErrors: ''
 HeaderFilterRegex: 'backend/.*'
 FormatStyle:     file
-...
