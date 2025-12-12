@@ -74,7 +74,8 @@ void Route::generate(const HttpRequestPtr &req,
                 if (wp.isMember("lat") && wp.isMember("lon")) {
                     double lat = wp["lat"].asDouble();
                     double lon = wp["lon"].asDouble();
-                    waypoints.push_back({osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat}});
+                    waypoints.push_back(
+                        {osrm::util::FloatLongitude{lon}, osrm::util::FloatLatitude{lat}});
                 }
             }
         }
@@ -95,8 +96,8 @@ void Route::generate(const HttpRequestPtr &req,
     } else {
         // 距離調整ロジック: RouteService に委譲
         if (targetDistanceKm > 0) {
-            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon}, {endLat, endLon},
-                                                               targetDistanceKm);
+            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon},
+                                                               {endLat, endLon}, targetDistanceKm);
 
             if (viaPoint) {
                 LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";

@@ -80,4 +80,4 @@ jobs:
       - name: Check Formatting
         run: |
           # Check backend source files
-          find backend -name "*.cc" -o -name "*.h" | xargs clang-format --dry-run --Werror -style=file:.clang-format
+          find backend -type f \( -name "*.cc" -o -name "*.h" \) -not -path "*/build/*" | xargs clang-format --dry-run --Werror -style=file:.clang-format
