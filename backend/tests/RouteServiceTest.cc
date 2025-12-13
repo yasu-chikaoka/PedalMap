@@ -46,3 +46,29 @@ TEST(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
     // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
     EXPECT_NEAR(result->lon, 139.05, 0.001);
 }
+
+TEST(RouteServiceTest, CalculateDetourPoint_HighLatitude) {
+    // 高緯度地域 (北緯60度)
+    // 経度1度あたりの距離は赤道の半分程度になるはず (cos(60) = 0.5)
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    Coordinate start{60.0, 10.0};
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    Coordinate end{60.0, 11.0};
+
+    // 直線距離計算
+    // 緯度変化なし、経度1度差
+    // 距離 ≒ 111.32 * cos(60) * 1 ≒ 55.66km
+
+    // 目標距離 100km
+    // NOLINTNEXTLINE(readability-magic-numbers)
+    auto result = RouteService::calculateDetourPoint(start, end, 100.0);
+    ASSERT_TRUE(result.has_value());
+
+    // 垂直方向に移動するはずなので、経度は中点(10.5)付近
+    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
+    EXPECT_NEAR(result->lon, 10.5, 0.01);
+
+    // 緯度は60.0から離れる
+    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
+    EXPECT_NE(result->lat, 60.0);
+}
