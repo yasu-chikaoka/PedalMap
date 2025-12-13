@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 project(cycling_backend CXX)
 
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 OLD)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -25,6 +29,8 @@ endif()
 include_directories(
     /usr/local/include
     /usr/local/include/osrm
+    /usr/include/jsoncpp
+    .
     controllers
     services
 )
@@ -62,3 +68,6 @@ target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
 )
+
+include(GoogleTest)
+gtest_discover_tests(cycling_backend_test)

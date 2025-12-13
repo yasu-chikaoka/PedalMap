@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [ "**" ]
   pull_request:
     branches: [ "**" ]
 
@@ -40,20 +38,54 @@ jobs:
 
   # Backend Jobs
   backend-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CMake & GTest
+      - name: Install CMake, GTest & Clang-Tidy
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libgtest-dev
+          sudo apt-get install -y cmake libgtest-dev clang-tidy \
+            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
+            libboost-all-dev libtbb-dev liblua5.3-dev libluabind-dev libstxxl-dev \
+            libxml2-dev libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
+            protobuf-compiler pkg-config
+
+      - name: Install OSRM Backend
+        run: |
+          git clone https://github.com/Project-OSRM/osrm-backend.git
+          cd osrm-backend
+          git checkout v5.27.1
+          mkdir build
+          cd build
+          cmake .. -DENABLE_MASON=OFF
+          make -j$(nproc)
+          sudo make install
+
+      - name: Install Drogon
+        run: |
+          git clone https://github.com/drogonframework/drogon
+          cd drogon
+          git checkout v1.9.5
+          git submodule update --init
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(nproc)
+          sudo make install
 
       - name: Configure CMake (Test Only)
-        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON
+        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      # 外部ライブラリでエラーになるのでキャンセル
+      # - name: Lint (Clang-Tidy)
+      #   run: |
+      #     # Run clang-tidy on source files
+      #     # Using find to get .cc files, avoiding build directory
+      #     find . -name "*.cc" -not -path "./build/*" | xargs clang-tidy -p build --quiet --config-file=../.clang-tidy
 
       - name: Build
         run: cmake --build build
@@ -64,7 +96,7 @@ jobs:
           ctest --output-on-failure
 
   backend-format:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -74,4 +106,4 @@ jobs:
       - name: Check Formatting
         run: |
           # Check backend source files
-          find backend -name "*.cc" -o -name "*.h" | xargs clang-format --dry-run --Werror -style=file:.clang-format
+          find backend -type f \( -name "*.cc" -o -name "*.h" \) -not -path "*/build/*" | xargs clang-format --dry-run --Werror -style=file:.clang-format

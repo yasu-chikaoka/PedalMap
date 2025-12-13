@@ -9,8 +9,7 @@
 
 using namespace drogon;
 
-namespace api {
-namespace v1 {
+namespace api::v1 {
 class Route : public drogon::HttpController<Route> {
    public:
     METHOD_LIST_BEGIN
@@ -19,6 +18,7 @@ class Route : public drogon::HttpController<Route> {
     ADD_METHOD_TO(Route::generate, "/api/v1/route/generate", Post);
     METHOD_LIST_END
 
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     void generate(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
 
@@ -28,5 +28,4 @@ class Route : public drogon::HttpController<Route> {
    private:
     std::unique_ptr<osrm::OSRM> osrm_;
 };
-}  // namespace v1
-}  // namespace api
+}  // namespace api::v1
