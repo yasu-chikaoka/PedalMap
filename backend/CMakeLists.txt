@@ -8,6 +8,12 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Add coverage flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(--coverage)
+    add_link_options(--coverage)
+endif()
+
 include(FetchContent)
 FetchContent_Declare(
   googletest
@@ -20,9 +26,10 @@ FetchContent_MakeAvailable(googletest)
 # Find packages
 option(BUILD_TESTS_ONLY "Build only tests without backend dependencies" OFF)
 
+find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
+
 if(NOT BUILD_TESTS_ONLY)
     find_package(Drogon REQUIRED)
-    find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
 endif()
 
 # Include directories
@@ -41,6 +48,7 @@ if(NOT BUILD_TESTS_ONLY)
         main.cc
         controllers/RouteController.cc
         services/RouteService.cc
+        services/SpotService.cc
     )
 
     # Link libraries
@@ -62,11 +70,21 @@ enable_testing()
 add_executable(
   cycling_backend_test
   tests/RouteServiceTest.cc
+  tests/OSRMIntegrationTest.cc
+  tests/SpotServiceTest.cc
   services/RouteService.cc
+  services/SpotService.cc
 )
 target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
+  osrm
+  ${Boost_LIBRARIES}
+  Boost::thread
+  Boost::filesystem
+  jsoncpp
+  pthread
+  z
 )
 
 include(GoogleTest)
