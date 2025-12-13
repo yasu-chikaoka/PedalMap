@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <osrm/nearest_parameters.hpp>
 
 namespace services {
 
@@ -10,13 +11,9 @@ namespace {
 // NOLINTNEXTLINE(readability-magic-numbers)
 constexpr double kEarthRadiusKm = 6371.0;
 
-double toRadians(double degrees) {
-    return degrees * std::numbers::pi / 180.0;
-}
+double toRadians(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
-double toDegrees(double radians) {
-    return radians * 180.0 / std::numbers::pi;
-}
+double toDegrees(double radians) { return radians * 180.0 / std::numbers::pi; }
 
 // Haversine formula
 double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
@@ -79,7 +76,8 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     // 簡易的に中心緯度での変換係数を使用
     double vecX = (end.lon - start.lon) * kLonDegToKm;
     double vecY = (end.lat - start.lat) * kLatDegToKm;
-    double vecLen = std::sqrt(vecX * vecX + vecY * vecY); // calculateDistanceKmとほぼ同じはずだが平面近似
+    double vecLen =
+        std::sqrt(vecX * vecX + vecY * vecY);  // calculateDistanceKmとほぼ同じはずだが平面近似
 
     if (vecLen == 0) {
         return std::nullopt;
@@ -95,6 +93,106 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     double viaLon = midLon + (perpX * detourHeight) / kLonDegToKm;
 
     return Coordinate{viaLat, viaLon};
+}
+
+std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
+    std::vector<Coordinate> waypoints;
+    if (json.isMember("waypoints")) {
+        const auto& wpArray = json["waypoints"];
+        if (wpArray.isArray()) {
+            for (const auto& waypoint : wpArray) {
+                if (waypoint.isMember("lat") && waypoint.isMember("lon")) {
+                    double lat = waypoint["lat"].asDouble();
+                    double lon = waypoint["lon"].asDouble();
+                    waypoints.emplace_back(Coordinate{lat, lon});
+                }
+            }
+        }
+    }
+    return waypoints;
+}
+
+std::optional<Coordinate> RouteService::snapToRoad(const osrm::OSRM& osrm,
+                                                   const Coordinate& coord) {
+    osrm::NearestParameters params;
+    params.coordinates.push_back(
+        {osrm::util::FloatLongitude{coord.lon}, osrm::util::FloatLatitude{coord.lat}});
+    params.number_of_results = 1;
+
+    osrm::json::Object result;
+    if (osrm.Nearest(params, result) == osrm::Status::Ok && result.values.contains("waypoints")) {
+        const auto& waypoints = result.values.at("waypoints").get<osrm::json::Array>();
+        if (!waypoints.values.empty()) {
+            const auto& waypoint = waypoints.values[0].get<osrm::json::Object>();
+            if (waypoint.values.contains("location")) {
+                const auto& location = waypoint.values.at("location").get<osrm::json::Array>();
+                return Coordinate{location.values[1].get<osrm::json::Number>().value,
+                                  location.values[0].get<osrm::json::Number>().value};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start,
+                                                         const Coordinate& end,
+                                                         const std::vector<Coordinate>& waypoints) {
+    osrm::RouteParameters params;
+    params.coordinates.emplace_back(osrm::util::FloatLongitude{start.lon},
+                                    osrm::util::FloatLatitude{start.lat});
+    for (const auto& wp : waypoints) {
+        params.coordinates.emplace_back(osrm::util::FloatLongitude{wp.lon},
+                                        osrm::util::FloatLatitude{wp.lat});
+    }
+    params.coordinates.emplace_back(osrm::util::FloatLongitude{end.lon},
+                                    osrm::util::FloatLatitude{end.lat});
+    params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
+    params.overview = osrm::RouteParameters::OverviewType::Full;
+    params.steps = true;  // To get path coordinates
+    return params;
+}
+
+std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& osrmResult) {
+    if (!osrmResult.values.contains("routes")) {
+        return std::nullopt;
+    }
+    const auto& routes = osrmResult.values.at("routes").get<osrm::json::Array>();
+    if (routes.values.empty()) {
+        return std::nullopt;
+    }
+
+    const auto& route = routes.values[0].get<osrm::json::Object>();
+    RouteResult res;
+    res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
+    res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
+    res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
+
+    if (route.values.contains("legs")) {
+        const auto& legs = route.values.at("legs").get<osrm::json::Array>();
+        for (const auto& legValue : legs.values) {
+            const auto& leg = legValue.get<osrm::json::Object>();
+            if (leg.values.contains("steps")) {
+                const auto& steps = leg.values.at("steps").get<osrm::json::Array>();
+                for (const auto& stepValue : steps.values) {
+                    const auto& step = stepValue.get<osrm::json::Object>();
+                    if (step.values.contains("intersections")) {
+                        const auto& intersections =
+                            step.values.at("intersections").get<osrm::json::Array>();
+                        for (const auto& intersectionValue : intersections.values) {
+                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
+                            if (intersection.values.contains("location")) {
+                                const auto& loc =
+                                    intersection.values.at("location").get<osrm::json::Array>();
+                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
+                                                    loc.values[0].get<osrm::json::Number>().value});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return res;
 }
 
 }  // namespace services

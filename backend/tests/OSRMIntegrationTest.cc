@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
-#include <osrm/engine_config.hpp>
-#include <osrm/json_container.hpp>
-#include <osrm/nearest_parameters.hpp>
-#include <osrm/route_parameters.hpp>
-#include <osrm/osrm.hpp>
 
 #include <iostream>
 #include <memory>
+#include <osrm/engine_config.hpp>
+#include <osrm/json_container.hpp>
+#include <osrm/nearest_parameters.hpp>
+#include <osrm/osrm.hpp>
+#include <osrm/route_parameters.hpp>
+
+#include "../services/RouteService.h"
 
 // OSRMとの統合テスト
 // 実際のデータファイル(/data/kanto-latest.osrm)を使用して、
@@ -27,11 +29,11 @@ class OSRMIntegrationTest : public ::testing::Test {
         // .osrm ファイルそのものがない場合もあるため、構成ファイルの一つ(.hsgrなど)を確認する
         const std::string osrm_path = "/data/kanto-latest.osrm";
         const std::string check_path = "/data/kanto-latest.osrm.hsgr";
-        
+
         if (access(check_path.c_str(), F_OK) == -1) {
-             // 別のファイル形式(CH以外)かもしれないので、とりあえず警告しつつも進むか、スキップするか。
-             // ここでは .fileIndex をチェックするなど代替案もあるが、シンプルにスキップ。
-             // もし .osrm があるならそちらをチェックすべきだが、リストになかったため。
+            // 別のファイル形式(CH以外)かもしれないので、とりあえず警告しつつも進むか、スキップするか。
+            // ここでは .fileIndex をチェックするなど代替案もあるが、シンプルにスキップ。
+            // もし .osrm があるならそちらをチェックすべきだが、リストになかったため。
             GTEST_SKIP() << "OSRM data file not found at " << check_path;
         }
 
@@ -83,6 +85,20 @@ TEST_F(OSRMIntegrationTest, SnapToRoadTest) {
         << "Coordinate should be snapped to a road";
 }
 
+TEST_F(OSRMIntegrationTest, RouteServiceSnapToRoad) {
+    if (!osrm_) return;
+
+    // A coordinate slightly off a road
+    services::Coordinate coord{35.685175, 139.7528};
+
+    auto snapped = services::RouteService::snapToRoad(*osrm_, coord);
+    ASSERT_TRUE(snapped.has_value());
+
+    // Check if the coordinate has moved
+    EXPECT_TRUE(std::abs(coord.lat - snapped->lat) > 0.00001 ||
+                std::abs(coord.lon - snapped->lon) > 0.00001);
+}
+
 TEST_F(OSRMIntegrationTest, RouteCalculationTest) {
     if (!osrm_) return;
 
@@ -100,11 +116,11 @@ TEST_F(OSRMIntegrationTest, RouteCalculationTest) {
     ASSERT_TRUE(result.values.contains("routes"));
     const auto &routes = result.values.at("routes").get<osrm::json::Array>();
     ASSERT_FALSE(routes.values.empty());
-    
+
     const auto &route = routes.values[0].get<osrm::json::Object>();
     ASSERT_TRUE(route.values.contains("distance"));
     double distance = route.values.at("distance").get<osrm::json::Number>().value;
-    
+
     std::cout << "Route Distance: " << distance << "m" << std::endl;
     EXPECT_GT(distance, 0.0);
 }
