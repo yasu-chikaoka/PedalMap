@@ -48,7 +48,7 @@ jobs:
       - name: Install CMake, GTest & Clang-Tidy
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libgtest-dev clang-tidy \
+          sudo apt-get install -y cmake clang-tidy \
             libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
             libboost-all-dev libtbb-dev liblua5.3-dev libluabind-dev libstxxl-dev \
             libxml2-dev libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \

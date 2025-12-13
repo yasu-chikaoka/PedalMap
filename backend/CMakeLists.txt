@@ -26,9 +26,10 @@ FetchContent_MakeAvailable(googletest)
 # Find packages
 option(BUILD_TESTS_ONLY "Build only tests without backend dependencies" OFF)
 
+find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
+
 if(NOT BUILD_TESTS_ONLY)
     find_package(Drogon REQUIRED)
-    find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
 endif()
 
 # Include directories
@@ -79,6 +80,8 @@ target_link_libraries(
   GTest::gtest_main
   osrm
   ${Boost_LIBRARIES}
+  Boost::thread
+  Boost::filesystem
   jsoncpp
   pthread
   z
