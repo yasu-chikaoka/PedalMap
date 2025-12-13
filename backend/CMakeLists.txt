@@ -62,11 +62,16 @@ enable_testing()
 add_executable(
   cycling_backend_test
   tests/RouteServiceTest.cc
+  tests/OSRMIntegrationTest.cc
   services/RouteService.cc
 )
 target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
+  osrm
+  ${Boost_LIBRARIES}
+  pthread
+  z
 )
 
 include(GoogleTest)

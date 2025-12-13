@@ -38,28 +38,44 @@ std::vector<osrm::util::Coordinate> parseWaypoints(const std::shared_ptr<Json::V
     return waypoints;
 }
 
+std::optional<osrm::util::Coordinate> snapToRoad(const osrm::OSRM &osrm,
+                                                 const osrm::util::Coordinate &coord) {
+    osrm::NearestParameters params;
+    params.coordinates.push_back(coord);
+    params.number_of_results = 1;
+
+    osrm::json::Object result;
+    const auto status = osrm.Nearest(params, result);
+
+    if (status == osrm::Status::Ok && result.values.contains("waypoints")) {
+        const auto &waypoints = result.values.at("waypoints").get<osrm::json::Array>();
+        if (!waypoints.values.empty()) {
+            const auto &waypoint = waypoints.values[0].get<osrm::json::Object>();
+            if (waypoint.values.contains("location")) {
+                const auto &location = waypoint.values.at("location").get<osrm::json::Array>();
+                // location is [lon, lat]
+                double lon = location.values[0].get<osrm::json::Number>().value;
+                double lat = location.values[1].get<osrm::json::Number>().value;
+
+                LOG_DEBUG << "Snapped coordinate to (" << lat << ", " << lon << ")";
+
+                return osrm::util::Coordinate(osrm::util::FloatLongitude{lon},
+                                              osrm::util::FloatLatitude{lat});
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 osrm::RouteParameters buildRouteParameters(double startLat, double startLon, double endLat,
-                                           double endLon, double targetDistanceKm,
+                                           double endLon,
                                            const std::vector<osrm::util::Coordinate> &waypoints) {
     osrm::RouteParameters params;
     params.coordinates.emplace_back(osrm::util::FloatLongitude{startLon},
                                     osrm::util::FloatLatitude{startLat});
 
-    if (!waypoints.empty()) {
-        for (const auto &waypoint : waypoints) {
-            params.coordinates.emplace_back(waypoint);
-        }
-    } else {
-        if (targetDistanceKm > 0) {
-            auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon},
-                                                               {endLat, endLon}, targetDistanceKm);
-
-            if (viaPoint) {
-                LOG_DEBUG << "Detour Via Point: (" << viaPoint->lat << ", " << viaPoint->lon << ")";
-                params.coordinates.emplace_back(osrm::util::FloatLongitude{viaPoint->lon},
-                                                osrm::util::FloatLatitude{viaPoint->lat});
-            }
-        }
+    for (const auto &waypoint : waypoints) {
+        params.coordinates.emplace_back(waypoint);
     }
 
     params.coordinates.emplace_back(osrm::util::FloatLongitude{endLon},
@@ -168,8 +184,30 @@ void Route::generate(const HttpRequestPtr &req,
 
     std::vector<osrm::util::Coordinate> waypoints = parseWaypoints(jsonPtr);
 
+    // Calculate detour if no explicit waypoints are provided and target distance is set
+    if (waypoints.empty() && targetDistanceKm > 0) {
+        auto viaPoint = RouteService::calculateDetourPoint({startLat, startLon}, {endLat, endLon},
+                                                           targetDistanceKm);
+
+        if (viaPoint) {
+            LOG_DEBUG << "Calculated Detour Point: (" << viaPoint->lat << ", " << viaPoint->lon
+                      << ")";
+            osrm::util::Coordinate detourCoord(osrm::util::FloatLongitude{viaPoint->lon},
+                                               osrm::util::FloatLatitude{viaPoint->lat});
+
+            // Snap the calculated point to the nearest road
+            auto snappedPoint = snapToRoad(*osrm_, detourCoord);
+            if (snappedPoint) {
+                waypoints.push_back(*snappedPoint);
+            } else {
+                LOG_WARN << "Failed to snap detour point to road, using original coordinate.";
+                waypoints.push_back(detourCoord);
+            }
+        }
+    }
+
     osrm::RouteParameters params =
-        buildRouteParameters(startLat, startLon, endLat, endLon, targetDistanceKm, waypoints);
+        buildRouteParameters(startLat, startLon, endLat, endLon, waypoints);
 
     osrm::json::Object result;
     const auto status = osrm_->Route(params, result);
