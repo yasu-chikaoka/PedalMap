@@ -10,14 +10,9 @@ using namespace utils;
 class SpotServiceTest : public ::testing::Test {
    protected:
     void SetUp() override {
-        // Set environment variable for test CSV
-        // Assume the test is run from the build directory, so we need to point to the source dir
-        // Or better, use an absolute path or relative to where we expect to be.
-        // In CMake/CTest environment, usually CWD is build dir.
-        // Let's assume the data file is copied or we use relative path from source root.
-
-        // Use absolute path in the container
-        setenv("SPOTS_CSV_PATH", "/app/tests/data/spots_test.csv", 1);
+        // テストデータファイル名を設定するだけです。
+        // ConfigServiceが実行ファイルの場所を基準にファイルを探します。
+        setenv("SPOTS_CSV_PATH", "spots_test.csv", 1);
 
         // Re-initialize services after setting env var
         configService = std::make_unique<ConfigService>();

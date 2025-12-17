@@ -14,6 +14,8 @@ class ConfigService {
     [[nodiscard]] double getSpotSearchRadius() const;
 
    private:
+    std::string findPath(const std::string& filename, const std::string& defaultPath);
+    std::string exeDir_;
     std::string osrmPath_;
     std::string spotsCsvPath_;
     double spotSearchRadius_;

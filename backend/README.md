@@ -183,7 +183,7 @@ docker-compose up --build
 
 ```bash
 # 1. バックエンドコンテナにアクセス
-docker-compose exec backend bash
+docker compose exec backend bash
 
 # 2. ビルドディレクトリに移動してテストを実行
 cd build
