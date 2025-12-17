@@ -37,15 +37,14 @@ ConfigService::ConfigService() {
     const char* csvPathEnv = std::getenv("SPOTS_CSV_PATH");
     std::string csvTarget = csvPathEnv ? csvPathEnv : "spots.csv";
     spotsCsvPath_ = findPath(csvTarget, csvTarget);
-    
+
     // フォールバック: 見つからず、環境変数も指定されていない場合は従来のデフォルトを使用
     if (!csvPathEnv && (spotsCsvPath_ == csvTarget) && std::ifstream(spotsCsvPath_).fail()) {
         spotsCsvPath_ = "/data/spots.csv";
     }
 }
 
-std::string ConfigService::findPath(const std::string& target,
-                                    const std::string& fallback) {
+std::string ConfigService::findPath(const std::string& target, const std::string& fallback) {
     auto exists = [](const std::string& p) {
         std::ifstream f(p);
         return f.good();
@@ -60,27 +59,17 @@ std::string ConfigService::findPath(const std::string& target,
     }
 
     // 探索するベースディレクトリのリスト
-    std::vector<std::string> baseDirs = {
-        exeDir_,
-        exeDir_ + "/..",
-        exeDir_ + "/../..",
-        exeDir_ + "/../../..",
-        // ビルドディレクトリからの相対位置を想定
-        exeDir_ + "/backend",
-        exeDir_ + "/../backend"
-    };
+    std::vector<std::string> baseDirs = {exeDir_, exeDir_ + "/..", exeDir_ + "/../..",
+                                         exeDir_ + "/../../..",
+                                         // ビルドディレクトリからの相対位置を想定
+                                         exeDir_ + "/backend", exeDir_ + "/../backend"};
 
     // 特定のサブディレクトリも探索対象に含める
-    std::vector<std::string> subDirs = {
-        "",
-        "data/",
-        "tests/data/",
-        "backend/tests/data/"
-    };
+    std::vector<std::string> subDirs = {"", "data/", "tests/data/", "backend/tests/data/"};
 
     for (const auto& base : baseDirs) {
         if (base.empty()) continue;
-        
+
         // 1. ベースディレクトリ + 元のパス (targetが相対パスの場合)
         std::string p1 = base + "/" + target;
         if (exists(p1)) return p1;
