@@ -112,7 +112,6 @@ std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
     return waypoints;
 }
 
-
 osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start,
                                                          const Coordinate& end,
                                                          const std::vector<Coordinate>& waypoints) {

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "../utils/PolylineDecoder.h"
 
 using namespace utils;
@@ -19,13 +20,13 @@ TEST(PolylineDecoderTest, DecodesMultiplePoints) {
     auto coords = PolylineDecoder::decode(encoded);
 
     ASSERT_EQ(coords.size(), 3);
-    
+
     EXPECT_NEAR(coords[0].lat, 38.5, 1e-5);
     EXPECT_NEAR(coords[0].lon, -120.2, 1e-5);
-    
+
     EXPECT_NEAR(coords[1].lat, 40.7, 1e-5);
     EXPECT_NEAR(coords[1].lon, -120.95, 1e-5);
-    
+
     EXPECT_NEAR(coords[2].lat, 43.252, 1e-5);
     EXPECT_NEAR(coords[2].lon, -126.453, 1e-5);
 }

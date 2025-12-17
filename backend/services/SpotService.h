@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "RouteService.h"  // Coordinate構造体用
 #include "ConfigService.h"
+#include "RouteService.h"  // Coordinate構造体用
 
 namespace services {
 
@@ -35,7 +35,8 @@ class SpotService {
     // 現時点では、ポイント周辺のバッファリングや単純なパスロジックで「ルート沿い」をシミュレートしています。
     // 「ルート沿い」を適切にサポートするには、ポリラインをLineStringに変換し、buffer/distanceを使用する必要があります。
     // ルートジオメトリ（ポリライン）沿いのスポットを検索
-    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry, double bufferMeters);
+    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
+                                            double bufferMeters);
 
    private:
     std::vector<Spot> spots_;

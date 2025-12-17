@@ -1,15 +1,15 @@
 #include "SpotService.h"
 
-#include "../utils/PolylineDecoder.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+#include "../utils/PolylineDecoder.h"
 
 namespace services {
 
 SpotService::SpotService(const ConfigService& configService) {
     loadSpotsFromCsv(configService.getSpotsCsvPath());
-
 }
 
 void SpotService::loadSpotsFromCsv(const std::string& filePath) {
@@ -20,7 +20,8 @@ void SpotService::loadSpotsFromCsv(const std::string& filePath) {
     }
 
     std::string line;
-    // ヘッダーが存在する場合はスキップしますか？ ヘッダーがないか、解析ロジックで処理されると仮定します
+    // ヘッダーが存在する場合はスキップしますか？
+    // ヘッダーがないか、解析ロジックで処理されると仮定します
     // 最初の行に数値以外の緯度/経度が含まれている場合、ヘッダーである可能性があると仮定しましょう
     // 簡単にするために、今のところヘッダーは無い、または最初の文字をチェックすると仮定します。
 
@@ -45,11 +46,12 @@ void SpotService::loadSpotsFromCsv(const std::string& filePath) {
                 spot.rating = std::stod(parts[4]);
 
                 spots_.push_back(spot);
-                
+
                 Point p(spot.lon, spot.lat);
                 rtree_.insert(std::make_pair(p, spots_.size() - 1));
             } catch (const std::exception& e) {
-                std::cerr << "Error parsing spot line: " << line << " (" << e.what() << ")" << std::endl;
+                std::cerr << "Error parsing spot line: " << line << " (" << e.what() << ")"
+                          << std::endl;
             }
         }
     }
@@ -96,8 +98,10 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
     // LineStringへの正確な距離を計算して結果を絞り込む
     for (const auto& candidate : candidates) {
         // bg::distanceは、特定のストラテジが使用されない限り、非デカルト座標系では座標と同じ単位（度）で距離を返します。
-        // しかし、地理座標系（geographic cs）の場合、正しいストラテジが適用されればメートルを返すかもしれません。
-        // 実際、最近のBoostバージョンでは、bg::cs::geographicの場合、デフォルトでメートルを返しますか？ 確認しましょう。
+        // しかし、地理座標系（geographic
+        // cs）の場合、正しいストラテジが適用されればメートルを返すかもしれません。
+        // 実際、最近のBoostバージョンでは、bg::cs::geographicの場合、デフォルトでメートルを返しますか？
+        // 確認しましょう。
         // 通常、地理座標系の場合はメートルを返します。そうでない場合は、Haversineストラテジが必要です。
 
         // Boost 1.74以降の地理座標系のデフォルトストラテジはandoyerまたはthomasで、メートルを返します。

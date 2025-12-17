@@ -1,9 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <osrm/json_container.hpp>
 #include <osrm/osrm.hpp>
 #include <osrm/route_parameters.hpp>
-#include <osrm/json_container.hpp>
 #include <osrm/status.hpp>
 
 #include "ConfigService.h"
@@ -18,9 +18,10 @@ class OSRMClient {
     // モック作成のためにRouteメソッドを仮想関数にする
     virtual osrm::Status Route(const osrm::RouteParameters& parameters,
                                osrm::json::Object& result) const;
-    
+
     // ポイントをスナップするためのヘルパー（RouteControllerで使用）
-    virtual std::vector<osrm::json::Object> Nearest(const osrm::NearestParameters& parameters) const;
+    virtual std::vector<osrm::json::Object> Nearest(
+        const osrm::NearestParameters& parameters) const;
 
     const osrm::OSRM& getOSRM() const { return *osrm_; }
 

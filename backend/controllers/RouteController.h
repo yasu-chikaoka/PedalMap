@@ -7,9 +7,9 @@
 #include <osrm/json_container.hpp>
 #include <osrm/osrm.hpp>
 
-#include "services/SpotService.h"
 #include "services/ConfigService.h"
 #include "services/OSRMClient.h"
+#include "services/SpotService.h"
 
 using namespace drogon;
 

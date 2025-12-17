@@ -23,7 +23,7 @@ std::vector<osrm::json::Object> OSRMClient::Nearest(
     const osrm::NearestParameters& parameters) const {
     osrm::json::Object result;
     auto status = osrm_->Nearest(parameters, result);
-    
+
     std::vector<osrm::json::Object> waypoints;
     if (status == osrm::Status::Ok) {
         if (result.values.find("waypoints") != result.values.end()) {

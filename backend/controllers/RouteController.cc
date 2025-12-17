@@ -14,10 +14,7 @@
 using namespace api::v1;
 using namespace services;
 
-Route::Route()
-    : configService_(),
-      osrmClient_(configService_),
-      spotService_(configService_) {}
+Route::Route() : configService_(), osrmClient_(configService_), spotService_(configService_) {}
 
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -63,7 +60,7 @@ void Route::generate(const HttpRequestPtr &req,
             params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
                                           osrm::util::FloatLatitude{viaPoint->lat}});
             params.number_of_results = 1;
-            
+
             auto nearestPoints = osrmClient_.Nearest(params);
             if (!nearestPoints.empty()) {
                 auto location = nearestPoints[0].values.at("location").get<osrm::json::Array>();

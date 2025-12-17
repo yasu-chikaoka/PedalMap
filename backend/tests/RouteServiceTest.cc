@@ -194,23 +194,25 @@ TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
 TEST(RouteServiceTest, CalculateDetourPoint_DetourHeightZero) {
     // このテストケースは、`detourHeight` をゼロまたは負にするように特別に設計されています。
     // これは、`halfTarget * halfTarget - halfStraight * halfStraight` が <= 0 の場合に発生します。
-    // これは、1.2倍のしきい値を超えていても、`targetDistance` が `straightDist` より小さいことを意味します。
-    // シナリオを作成しましょう。
+    // これは、1.2倍のしきい値を超えていても、`targetDistance` が `straightDist`
+    // より小さいことを意味します。 シナリオを作成しましょう。
     // 直線距離を10kmとします。しきい値は12kmです。
     // calculateDistanceKmにいくつかの精度誤差があり、
     // ターゲットが12.1の場合にstraightDistを12.2と計算すると仮定します。
     // 分岐を直接テストするには：
-    // targetDistanceKm = 10, straightDist = 9 の場合。 `10 <= 9 * 1.2` (10.8) は true -> nulloptを返します。
-    // `halfTarget^2` が `halfStraight^2` よりもわずかに小さい状況を作ってみましょう。
-    // それはすでに `targetDistanceKm <= straightDist * kDetourThresholdFactor` でカバーされています。
-    // `detourHeight` がゼロになる唯一の方法は、`targetDistanceKm` が正確に `straightDist` である場合ですが、これもカバーされています。
-    // `target > straight` であれば、`< 0` の部分は数学的に不可能です。
+    // targetDistanceKm = 10, straightDist = 9 の場合。 `10 <= 9 * 1.2` (10.8) は true ->
+    // nulloptを返します。 `halfTarget^2` が `halfStraight^2`
+    // よりもわずかに小さい状況を作ってみましょう。 それはすでに `targetDistanceKm <= straightDist *
+    // kDetourThresholdFactor` でカバーされています。 `detourHeight`
+    // がゼロになる唯一の方法は、`targetDistanceKm` が正確に `straightDist`
+    // である場合ですが、これもカバーされています。 `target > straight` であれば、`< 0`
+    // の部分は数学的に不可能です。
     // したがって、既存のテストですべての論理パスをカバーしているようです。
     // 残りのカバーされていない行は、エラー条件や特定の浮動小数点の結果に関連している可能性があります。
     // `detourHeight > 0` ブロック内の `vecLen == 0` をヒットさせてみましょう（これも不可能です）。
 
-    // `RouteService.cc` を再検討しましょう。カバーされていない部分は、`snapToRoad` や `processRoute` の例外/エラーパスであり、
-    // トリガーするのが難しい可能性があります。
+    // `RouteService.cc` を再検討しましょう。カバーされていない部分は、`snapToRoad` や
+    // `processRoute` の例外/エラーパスであり、 トリガーするのが難しい可能性があります。
     // 意味のある単体テストで残りの数行をヒットさせることの難しさと、
     // コアロジックがカバーされていることを考慮すると、現在のカバレッジは十分であると見なします。
     // 現在のテストはすべての主要な機能をカバーしています。
