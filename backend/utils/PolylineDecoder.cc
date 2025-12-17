@@ -43,4 +43,46 @@ std::vector<services::Coordinate> PolylineDecoder::decode(const std::string& enc
     return coordinates;
 }
 
+std::string PolylineDecoder::encode(const std::vector<services::Coordinate>& points,
+                                    double precision) {
+    std::string encodedString;
+    int lastLat = 0;
+    int lastLng = 0;
+
+    for (const auto& point : points) {
+        int lat = static_cast<int>(std::round(point.lat * precision));
+        int lng = static_cast<int>(std::round(point.lon * precision));
+
+        int dLat = lat - lastLat;
+        int dLng = lng - lastLng;
+
+        // Encode latitude
+        int num = dLat << 1;
+        if (dLat < 0) {
+            num = ~(num);
+        }
+        while (num >= 0x20) {
+            encodedString += static_cast<char>((0x20 | (num & 0x1f)) + 63);
+            num >>= 5;
+        }
+        encodedString += static_cast<char>(num + 63);
+
+        // Encode longitude
+        num = dLng << 1;
+        if (dLng < 0) {
+            num = ~(num);
+        }
+        while (num >= 0x20) {
+            encodedString += static_cast<char>((0x20 | (num & 0x1f)) + 63);
+            num >>= 5;
+        }
+        encodedString += static_cast<char>(num + 63);
+
+        lastLat = lat;
+        lastLng = lng;
+    }
+
+    return encodedString;
+}
+
 }  // namespace utils

@@ -63,11 +63,6 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
     }
 
     auto path = utils::PolylineDecoder::decode(polylineGeometry);
-    return searchSpotsAlongPath(path, bufferMeters);
-}
-
-std::vector<Spot> SpotService::searchSpotsAlongPath(const std::vector<Coordinate>& path,
-                                                    double bufferMeters) {
     std::vector<Spot> results;
     if (path.empty()) {
         return results;

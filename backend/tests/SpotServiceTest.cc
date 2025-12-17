@@ -2,8 +2,10 @@
 
 #include "../services/ConfigService.h"
 #include "../services/SpotService.h"
+#include "../utils/PolylineDecoder.h"
 
 using namespace services;
+using namespace utils;
 
 class SpotServiceTest : public ::testing::Test {
    protected:
@@ -37,8 +39,11 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_Simple) {
         {35.698383, 139.773072}   // 秋葉原
     };
 
+    // パスをエンコード
+    std::string polyline = PolylineDecoder::encode(path);
+
     // 半径1km以内で検索
-    auto spots = spotService->searchSpotsAlongPath(path, 1000.0);
+    auto spots = spotService->searchSpotsAlongRoute(polyline, 1000.0);
 
     // "Cycling Cafe Base"（東京駅）と "Ramen Energy"（秋葉原）が見つかることを期待
     ASSERT_GE(spots.size(), 2);
@@ -58,7 +63,10 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_NoSpotsNearby) {
     // 登録されたスポットから遠く離れたパス
     std::vector<Coordinate> path = {{40.0, 135.0}, {40.1, 135.1}};
 
-    auto spots = spotService->searchSpotsAlongPath(path, 1000.0);
+    // パスをエンコード
+    std::string polyline = PolylineDecoder::encode(path);
+
+    auto spots = spotService->searchSpotsAlongRoute(polyline, 1000.0);
 
     EXPECT_TRUE(spots.empty());
 }
@@ -72,8 +80,11 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_ComplexPath) {
         {35.714074, 139.774109}   // 上野
     };
 
+    // パスをエンコード
+    std::string polyline = PolylineDecoder::encode(path);
+
     // 半径1.5km以内で検索
-    auto spots = spotService->searchSpotsAlongPath(path, 1500.0);
+    auto spots = spotService->searchSpotsAlongRoute(polyline, 1500.0);
 
     // 東京、秋葉原、スカイツリー、上野のスポットが見つかることを期待
     ASSERT_GE(spots.size(), 4);

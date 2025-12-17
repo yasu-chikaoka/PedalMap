@@ -34,9 +34,6 @@ class SpotService {
     // polylineGeometry: エンコードされたポリライン文字列（未実装、現在は座標のパスを使用）
     // 現時点では、ポイント周辺のバッファリングや単純なパスロジックで「ルート沿い」をシミュレートしています。
     // 「ルート沿い」を適切にサポートするには、ポリラインをLineStringに変換し、buffer/distanceを使用する必要があります。
-    std::vector<Spot> searchSpotsAlongPath(const std::vector<Coordinate>& path,
-                                           double bufferMeters);
-    
     // ルートジオメトリ（ポリライン）沿いのスポットを検索
     std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry, double bufferMeters);
 

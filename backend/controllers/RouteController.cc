@@ -103,9 +103,8 @@ void Route::generate(const HttpRequestPtr &req,
 
     // ルート沿いのスポットを検索
     double searchRadius = configService_.getSpotSearchRadius();
-    // 現在はパスベースの検索を使用、後でポリラインジオメトリ検索に切り替える予定
-    // auto spots = spotService_.searchSpotsAlongRoute(routeResult->geometry, searchRadius);
-    auto spots = spotService_.searchSpotsAlongPath(routeResult->path, searchRadius);
+    // ポリラインジオメトリ検索を使用
+    auto spots = spotService_.searchSpotsAlongRoute(routeResult->geometry, searchRadius);
     for (const auto &spot : spots) {
         Json::Value stop;
         stop["name"] = spot.name;
