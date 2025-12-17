@@ -47,6 +47,8 @@ if(NOT BUILD_TESTS_ONLY)
     add_executable(cycling_backend
         main.cc
         controllers/RouteController.cc
+        services/ConfigService.cc
+        services/OSRMClient.cc
         services/RouteService.cc
         services/SpotService.cc
     )
@@ -72,6 +74,8 @@ add_executable(
   tests/RouteServiceTest.cc
   tests/OSRMIntegrationTest.cc
   tests/SpotServiceTest.cc
+  services/ConfigService.cc
+  services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
 )

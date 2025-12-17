@@ -112,27 +112,6 @@ std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
     return waypoints;
 }
 
-std::optional<Coordinate> RouteService::snapToRoad(const osrm::OSRM& osrm,
-                                                   const Coordinate& coord) {
-    osrm::NearestParameters params;
-    params.coordinates.push_back(
-        {osrm::util::FloatLongitude{coord.lon}, osrm::util::FloatLatitude{coord.lat}});
-    params.number_of_results = 1;
-
-    osrm::json::Object result;
-    if (osrm.Nearest(params, result) == osrm::Status::Ok && result.values.contains("waypoints")) {
-        const auto& waypoints = result.values.at("waypoints").get<osrm::json::Array>();
-        if (!waypoints.values.empty()) {
-            const auto& waypoint = waypoints.values[0].get<osrm::json::Object>();
-            if (waypoint.values.contains("location")) {
-                const auto& location = waypoint.values.at("location").get<osrm::json::Array>();
-                return Coordinate{location.values[1].get<osrm::json::Number>().value,
-                                  location.values[0].get<osrm::json::Number>().value};
-            }
-        }
-    }
-    return std::nullopt;
-}
 
 osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start,
                                                          const Coordinate& end,

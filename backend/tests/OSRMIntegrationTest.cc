@@ -85,20 +85,6 @@ TEST_F(OSRMIntegrationTest, SnapToRoadTest) {
         << "Coordinate should be snapped to a road";
 }
 
-TEST_F(OSRMIntegrationTest, RouteServiceSnapToRoad) {
-    if (!osrm_) return;
-
-    // A coordinate slightly off a road
-    services::Coordinate coord{35.685175, 139.7528};
-
-    auto snapped = services::RouteService::snapToRoad(*osrm_, coord);
-    ASSERT_TRUE(snapped.has_value());
-
-    // Check if the coordinate has moved
-    EXPECT_TRUE(std::abs(coord.lat - snapped->lat) > 0.00001 ||
-                std::abs(coord.lon - snapped->lon) > 0.00001);
-}
-
 TEST_F(OSRMIntegrationTest, RouteCalculationTest) {
     if (!osrm_) return;
 

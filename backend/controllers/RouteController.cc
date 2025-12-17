@@ -14,17 +14,10 @@
 using namespace api::v1;
 using namespace services;
 
-Route::Route() {
-    // OSRM エンジンの初期化
-    osrm::EngineConfig config;
-    config.storage_config = {"/data/kanto-latest.osrm"};
-    config.use_shared_memory = false;
-    // アルゴリズムは CH (Contraction Hierarchies) または MLD (Multi-Level Dijkstra)
-    // ここでは CH を使用（前処理で osrm-contract を実行したため）
-    config.algorithm = osrm::EngineConfig::Algorithm::CH;
-
-    osrm_ = std::make_unique<osrm::OSRM>(config);
-}
+Route::Route()
+    : configService_(),
+      osrmClient_(configService_),
+      spotService_(configService_) {}
 
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -65,8 +58,18 @@ void Route::generate(const HttpRequestPtr &req,
         if (auto viaPoint = RouteService::calculateDetourPoint(start, end, targetDistanceKm)) {
             LOG_DEBUG << "Calculated Detour Point: (" << viaPoint->lat << ", " << viaPoint->lon
                       << ")";
-            if (auto snappedPoint = RouteService::snapToRoad(*osrm_, *viaPoint)) {
-                waypoints.push_back(*snappedPoint);
+            // Use OSRMClient to snap the point
+            osrm::NearestParameters params;
+            params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
+                                          osrm::util::FloatLatitude{viaPoint->lat}});
+            params.number_of_results = 1;
+            
+            auto nearestPoints = osrmClient_.Nearest(params);
+            if (!nearestPoints.empty()) {
+                auto location = nearestPoints[0].values.at("location").get<osrm::json::Array>();
+                Coordinate snapped{location.values[1].get<osrm::json::Number>().value,
+                                   location.values[0].get<osrm::json::Number>().value};
+                waypoints.push_back(snapped);
             } else {
                 LOG_WARN << "Failed to snap detour point to road, using original coordinate.";
                 waypoints.push_back(*viaPoint);
@@ -76,7 +79,7 @@ void Route::generate(const HttpRequestPtr &req,
 
     osrm::RouteParameters params = RouteService::buildRouteParameters(start, end, waypoints);
     osrm::json::Object osrmResult;
-    if (osrm_->Route(params, osrmResult) != osrm::Status::Ok) {
+    if (osrmClient_.Route(params, osrmResult) != osrm::Status::Ok) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Route calculation failed");
@@ -99,8 +102,10 @@ void Route::generate(const HttpRequestPtr &req,
     respJson["geometry"] = routeResult->geometry;
 
     // Search for spots along the route
-    const double kSearchRadiusMeters = 500.0;
-    auto spots = spotService_.searchSpotsAlongPath(routeResult->path, kSearchRadiusMeters);
+    double searchRadius = configService_.getSpotSearchRadius();
+    // Use path based search for now, will switch to polyline geometry search later
+    // auto spots = spotService_.searchSpotsAlongRoute(routeResult->geometry, searchRadius);
+    auto spots = spotService_.searchSpotsAlongPath(routeResult->path, searchRadius);
     for (const auto &spot : spots) {
         Json::Value stop;
         stop["name"] = spot.name;

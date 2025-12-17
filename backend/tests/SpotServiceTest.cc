@@ -1,11 +1,15 @@
 #include <gtest/gtest.h>
 
+#include "../services/ConfigService.h"
 #include "../services/SpotService.h"
 
 using namespace services;
 
 class SpotServiceTest : public ::testing::Test {
    protected:
+    SpotServiceTest() : configService(), spotService(configService) {}
+    
+    ConfigService configService;
     SpotService spotService;
 };
 

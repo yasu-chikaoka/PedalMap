@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "RouteService.h"  // For Coordinate struct
+#include "ConfigService.h"
 
 namespace services {
 
@@ -27,7 +28,7 @@ struct Spot {
 
 class SpotService {
    public:
-    SpotService();
+    explicit SpotService(const ConfigService& configService);
 
     // Search spots along a route (polyline)
     // polylineGeometry: Encoded polyline string (not implemented yet, taking path of coordinates)
@@ -36,12 +37,16 @@ class SpotService {
     // buffer/distance.
     std::vector<Spot> searchSpotsAlongPath(const std::vector<Coordinate>& path,
                                            double bufferMeters);
+    
+    // Search spots along route geometry (polyline)
+    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry, double bufferMeters);
 
    private:
     std::vector<Spot> spots_;
     bgi::rtree<Value, bgi::quadratic<16>> rtree_;
 
-    void loadSpots();
+    void loadSpots(); // Load dummy data (fallback)
+    void loadSpotsFromCsv(const std::string& filePath);
 };
 
 }  // namespace services

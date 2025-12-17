@@ -1,10 +1,19 @@
 #include "SpotService.h"
 
+#include <fstream>
 #include <iostream>
+#include <sstream>
 
 namespace services {
 
-SpotService::SpotService() { loadSpots(); }
+SpotService::SpotService(const ConfigService& configService) {
+    loadSpotsFromCsv(configService.getSpotsCsvPath());
+
+    if (spots_.empty()) {
+        // Fallback to dummy data if CSV load fails or empty
+        loadSpots();
+    }
+}
 
 void SpotService::loadSpots() {
     // Initialize with dummy data around Tokyo
@@ -28,6 +37,57 @@ void SpotService::loadSpots() {
         Point p(spots_[i].lon, spots_[i].lat);
         rtree_.insert(std::make_pair(p, i));
     }
+}
+
+void SpotService::loadSpotsFromCsv(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open spots CSV file: " << filePath << std::endl;
+        return;
+    }
+
+    std::string line;
+    // Skip header if it exists? Assuming no header or handled by parsing logic
+    // Let's assume the first line might be a header if it contains non-numeric lat/lon
+    // For simplicity, assume NO header for now, or check first char.
+
+    while (std::getline(file, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::stringstream ss(line);
+        std::string segment;
+        std::vector<std::string> parts;
+
+        while (std::getline(ss, segment, ',')) {
+            parts.push_back(segment);
+        }
+
+        if (parts.size() >= 5) {
+            try {
+                Spot spot;
+                spot.name = parts[0];
+                spot.type = parts[1];
+                spot.lat = std::stod(parts[2]);
+                spot.lon = std::stod(parts[3]);
+                spot.rating = std::stod(parts[4]);
+
+                spots_.push_back(spot);
+                
+                Point p(spot.lon, spot.lat);
+                rtree_.insert(std::make_pair(p, spots_.size() - 1));
+            } catch (const std::exception& e) {
+                std::cerr << "Error parsing spot line: " << line << " (" << e.what() << ")" << std::endl;
+            }
+        }
+    }
+    std::cout << "Loaded " << spots_.size() << " spots from " << filePath << std::endl;
+}
+
+std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polylineGeometry,
+                                                     double bufferMeters) {
+    // TODO: Implement polyline decoding and search
+    // For now, return empty result
+    return {};
 }
 
 std::vector<Spot> SpotService::searchSpotsAlongPath(const std::vector<Coordinate>& path,

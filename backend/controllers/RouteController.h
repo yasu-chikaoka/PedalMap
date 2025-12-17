@@ -8,6 +8,8 @@
 #include <osrm/osrm.hpp>
 
 #include "services/SpotService.h"
+#include "services/ConfigService.h"
+#include "services/OSRMClient.h"
 
 using namespace drogon;
 
@@ -23,11 +25,12 @@ class Route : public drogon::HttpController<Route> {
     void generate(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback);
 
-    // コンストラクタでOSRMエンジンを初期化
+    // コンストラクタで依存サービスを初期化
     Route();
 
    private:
-    std::unique_ptr<osrm::OSRM> osrm_;
+    services::ConfigService configService_;
+    services::OSRMClient osrmClient_;
     services::SpotService spotService_;
 };
 }  // namespace api::v1
