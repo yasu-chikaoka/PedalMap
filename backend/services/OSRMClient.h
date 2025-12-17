@@ -15,11 +15,11 @@ class OSRMClient {
     explicit OSRMClient(const ConfigService& configService);
     virtual ~OSRMClient() = default;
 
-    // Make Route method virtual for mocking
+    // モック作成のためにRouteメソッドを仮想関数にする
     virtual osrm::Status Route(const osrm::RouteParameters& parameters,
                                osrm::json::Object& result) const;
     
-    // Helper for snapping points (used in RouteController)
+    // ポイントをスナップするためのヘルパー（RouteControllerで使用）
     virtual std::vector<osrm::json::Object> Nearest(const osrm::NearestParameters& parameters) const;
 
     const osrm::OSRM& getOSRM() const { return *osrm_; }

@@ -8,7 +8,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Add coverage flags
+# カバレッジフラグの追加
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(--coverage)
     add_link_options(--coverage)
@@ -19,11 +19,11 @@ FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
+# Windows用: 親プロジェクトのコンパイラ/リンカー設定の上書きを防止
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Find packages
+# パッケージの検索
 option(BUILD_TESTS_ONLY "Build only tests without backend dependencies" OFF)
 
 find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
@@ -32,7 +32,7 @@ if(NOT BUILD_TESTS_ONLY)
     find_package(Drogon REQUIRED)
 endif()
 
-# Include directories
+# インクルードディレクトリ
 include_directories(
     /usr/local/include
     /usr/local/include/osrm
@@ -43,7 +43,7 @@ include_directories(
 )
 
 if(NOT BUILD_TESTS_ONLY)
-    # Add executable
+    # 実行可能ファイルの追加
     add_executable(cycling_backend
         main.cc
         controllers/RouteController.cc
@@ -54,10 +54,10 @@ if(NOT BUILD_TESTS_ONLY)
         utils/PolylineDecoder.cc
     )
 
-    # Link libraries
-    # Drogon links its dependencies (jsoncpp, uuid, etc)
-    # osrm, osrm_extract, osrm_contract, osrm_partition, osrm_customize are the usual libs,
-    # but for query/routing 'osrm' is the main one.
+    # ライブラリのリンク
+    # Drogonはその依存関係（jsoncpp, uuidなど）をリンクします
+    # osrm, osrm_extract, osrm_contract, osrm_partition, osrm_customize が通常のライブラリですが、
+    # クエリ/ルーティングには 'osrm' がメインです。
     target_link_libraries(cycling_backend
         PRIVATE
         Drogon::Drogon

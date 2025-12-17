@@ -58,7 +58,7 @@ void Route::generate(const HttpRequestPtr &req,
         if (auto viaPoint = RouteService::calculateDetourPoint(start, end, targetDistanceKm)) {
             LOG_DEBUG << "Calculated Detour Point: (" << viaPoint->lat << ", " << viaPoint->lon
                       << ")";
-            // Use OSRMClient to snap the point
+            // OSRMClientを使用してポイントを道路上にスナップする
             osrm::NearestParameters params;
             params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
                                           osrm::util::FloatLatitude{viaPoint->lat}});
@@ -101,9 +101,9 @@ void Route::generate(const HttpRequestPtr &req,
     respJson["summary"]["estimated_moving_time_s"] = routeResult->duration_s;
     respJson["geometry"] = routeResult->geometry;
 
-    // Search for spots along the route
+    // ルート沿いのスポットを検索
     double searchRadius = configService_.getSpotSearchRadius();
-    // Use path based search for now, will switch to polyline geometry search later
+    // 現在はパスベースの検索を使用、後でポリラインジオメトリ検索に切り替える予定
     // auto spots = spotService_.searchSpotsAlongRoute(routeResult->geometry, searchRadius);
     auto spots = spotService_.searchSpotsAlongPath(routeResult->path, searchRadius);
     for (const auto &spot : spots) {

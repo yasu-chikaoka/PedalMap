@@ -5,7 +5,7 @@
 namespace services {
 
 ConfigService::ConfigService() {
-    // Load from environment variables or use default values
+    // 環境変数からロードするか、デフォルト値を使用する
     const char* osrmPathEnv = std::getenv("OSRM_PATH");
     osrmPath_ = osrmPathEnv ? osrmPathEnv : "/data/kanto-latest.osrm";
 

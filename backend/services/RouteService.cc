@@ -15,7 +15,7 @@ double toRadians(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
 double toDegrees(double radians) { return radians * 180.0 / std::numbers::pi; }
 
-// Haversine formula
+// ハーバーサイン公式
 double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
     double dLat = toRadians(p2.lat - p1.lat);
     double dLon = toRadians(p2.lon - p1.lon);
@@ -127,7 +127,7 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
                                     osrm::util::FloatLatitude{end.lat});
     params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
     params.overview = osrm::RouteParameters::OverviewType::Full;
-    params.steps = true;  // To get path coordinates
+    params.steps = true;  // パス座標を取得するため
     return params;
 }
 

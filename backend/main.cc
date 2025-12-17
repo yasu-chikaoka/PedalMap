@@ -6,13 +6,13 @@ int main() {
     std::cout << "Starting Cycling Backend Server..." << std::endl;
 
     const int kPort = 8080;
-    // Set HTTP listener address and port
+    // HTTPリスナーのアドレスとポートを設定
     drogon::app().addListener("0.0.0.0", kPort);
 
-    // Enable logging
+    // ログ出力を有効化
     drogon::app().setLogLevel(trantor::Logger::kDebug);
 
-    // CORS Filter
+    // CORSフィルタ
     drogon::app().registerPostHandlingAdvice(
         [](const drogon::HttpRequestPtr &req, const drogon::HttpResponsePtr &resp) {
             resp->addHeader("Access-Control-Allow-Origin", "*");
@@ -20,7 +20,7 @@ int main() {
             resp->addHeader("Access-Control-Allow-Headers", "Content-Type");
         });
 
-    // Options method handler for CORS preflight
+    // CORSプリフライト用のOPTIONSメソッドハンドラ
     drogon::app().registerHandler(
         "/api/v1/route/generate",
         [](const drogon::HttpRequestPtr &req,
@@ -31,7 +31,7 @@ int main() {
         },
         {drogon::Options});
 
-    // Run API server
+    // APIサーバーを実行
     drogon::app().run();
 
     return 0;

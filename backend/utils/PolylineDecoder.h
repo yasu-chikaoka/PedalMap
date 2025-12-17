@@ -3,15 +3,15 @@
 #include <string>
 #include <vector>
 
-#include "../services/RouteService.h" // For Coordinate struct
+#include "../services/RouteService.h" // Coordinate構造体用
 
 namespace utils {
 
 class PolylineDecoder {
    public:
-    // Decodes an encoded polyline string into a vector of coordinates
-    // Precision defaults to 1e5 (5 decimal places), consistent with OSRM and Google Maps
-    static std::vector<services::Coordinate> decode(const std::string& encodedPolyline, 
+    // エンコードされたポリライン文字列を座標のベクターにデコードします
+    // 精度はデフォルトで1e5（小数点以下5桁）で、OSRMおよびGoogleマップと一致しています
+    static std::vector<services::Coordinate> decode(const std::string& encodedPolyline,
                                                     double precision = 1e5);
 };
 

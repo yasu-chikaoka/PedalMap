@@ -4,7 +4,7 @@
 using namespace utils;
 
 TEST(PolylineDecoderTest, DecodesSimpleLine) {
-    // Encoded polyline for (38.5, -120.2)
+    // (38.5, -120.2) のエンコード済みポリライン
     std::string encoded = "_p~iF~ps|U";
     auto coords = PolylineDecoder::decode(encoded);
 
@@ -14,7 +14,7 @@ TEST(PolylineDecoderTest, DecodesSimpleLine) {
 }
 
 TEST(PolylineDecoderTest, DecodesMultiplePoints) {
-    // Points: (38.5, -120.2), (40.7, -120.95), (43.252, -126.453)
+    // ポイント: (38.5, -120.2), (40.7, -120.95), (43.252, -126.453)
     std::string encoded = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
     auto coords = PolylineDecoder::decode(encoded);
 
@@ -37,20 +37,20 @@ TEST(PolylineDecoderTest, HandlesEmptyString) {
 }
 
 TEST(PolylineDecoderTest, HandlesTokyoPath) {
-    // A short path near Tokyo Station
+    // 東京駅近くの短いパス
     // (35.681236, 139.767125) -> (35.681500, 139.767500)
-    // Approximate encoding
-    // 35.68124 -> 3568124 -> 
+    // 近似エンコーディング
+    // 35.68124 -> 3568124 ->
     // 139.76713 -> 13976713 ->
-    // Diff: +26, +37
-    // Let's rely on OSRM demo or similar tool to get a valid string, 
-    // or just trust the decoder logic if the above standard test cases pass.
-    // Using a known string from a decoding tool for: (35.68124, 139.76713), (35.68200, 139.76800)
+    // 差分: +26, +37
+    // 有効な文字列を取得するにはOSRMデモまたは同様のツールに頼るか、
+    // 上記の標準テストケースに合格した場合はデコーダーロジックを信頼しましょう。
+    // デコードツールからの既知の文字列を使用: (35.68124, 139.76713), (35.68200, 139.76800)
     // 35.68124, 139.76713
     // 35.68200 - 35.68124 = 0.00076 -> 76
     // 139.76800 - 139.76713 = 0.00087 -> 87
     //
-    // Encoding manual check is complex, let's use a simple string that we know works or generated.
-    // Actually, the previous test cases cover the algorithm correctness (deltas, negatives, etc).
-    // Let's add one with high precision behavior check if needed, but 1e5 is standard.
+    // エンコードの手動チェックは複雑なので、機能するか生成された単純な文字列を使用しましょう。
+    // 実際、以前のテストケースはアルゴリズムの正確性（デルタ、負の値など）をカバーしています。
+    // 必要であれば、高精度な動作チェックを追加しますが、1e5が標準です。
 }

@@ -31,16 +31,16 @@ class SpotServiceTest : public ::testing::Test {
 };
 
 TEST_F(SpotServiceTest, SearchSpotsAlongPath_Simple) {
-    // A path from Tokyo Station to Akihabara
+    // 東京駅から秋葉原へのパス
     std::vector<Coordinate> path = {
-        {35.681236, 139.767125},  // Tokyo Station
-        {35.698383, 139.773072}   // Akihabara
+        {35.681236, 139.767125},  // 東京駅
+        {35.698383, 139.773072}   // 秋葉原
     };
 
-    // Search within 1km radius
+    // 半径1km以内で検索
     auto spots = spotService->searchSpotsAlongPath(path, 1000.0);
 
-    // Expect to find "Cycling Cafe Base" (Tokyo Sta) and "Ramen Energy" (Akihabara)
+    // "Cycling Cafe Base"（東京駅）と "Ramen Energy"（秋葉原）が見つかることを期待
     ASSERT_GE(spots.size(), 2);
 
     bool foundCafe = false;
@@ -55,7 +55,7 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_Simple) {
 }
 
 TEST_F(SpotServiceTest, SearchSpotsAlongPath_NoSpotsNearby) {
-    // A path far from any registered spots
+    // 登録されたスポットから遠く離れたパス
     std::vector<Coordinate> path = {{40.0, 135.0}, {40.1, 135.1}};
 
     auto spots = spotService->searchSpotsAlongPath(path, 1000.0);
@@ -64,18 +64,18 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_NoSpotsNearby) {
 }
 
 TEST_F(SpotServiceTest, SearchSpotsAlongPath_ComplexPath) {
-    // Tokyo -> Akihabara -> Skytree -> Ueno
+    // 東京 -> 秋葉原 -> スカイツリー -> 上野
     std::vector<Coordinate> path = {
-        {35.681236, 139.767125},  // Tokyo Station
-        {35.698383, 139.773072},  // Akihabara
-        {35.710063, 139.810700},  // Skytree
-        {35.714074, 139.774109}   // Ueno
+        {35.681236, 139.767125},  // 東京駅
+        {35.698383, 139.773072},  // 秋葉原
+        {35.710063, 139.810700},  // スカイツリー
+        {35.714074, 139.774109}   // 上野
     };
 
-    // Search within 1.5km
+    // 半径1.5km以内で検索
     auto spots = spotService->searchSpotsAlongPath(path, 1500.0);
 
-    // Expect to find Tokyo, Akihabara, Skytree, and Ueno spots
+    // 東京、秋葉原、スカイツリー、上野のスポットが見つかることを期待
     ASSERT_GE(spots.size(), 4);
 
     std::set<std::string> foundNames;
@@ -90,82 +90,82 @@ TEST_F(SpotServiceTest, SearchSpotsAlongPath_ComplexPath) {
 }
 
 TEST_F(SpotServiceTest, SearchSpotsAlongRoute_EncodedPolyline) {
-    // A path passing through Tokyo Station
-    // Encoded polyline for a segment near Tokyo Station
-    // Points: (35.6800, 139.7600) -> (35.6850, 139.7700)
-    // "Cycling Cafe Base" is at 35.681236, 139.767125, which should be close to this line.
+    // 東京駅を通過するパス
+    // 東京駅周辺のセグメントのエンコードされたポリライン
+    // ポイント: (35.6800, 139.7600) -> (35.6850, 139.7700)
+    // "Cycling Cafe Base" は 35.681236, 139.767125 にあり、この線に近いはずです。
     
-    // Encoding (35.6800, 139.7600), (35.6850, 139.7700)
+    // エンコード (35.6800, 139.7600), (35.6850, 139.7700)
     // 35.6800, 139.7600 -> _ibE_seK
-    // Delta: +0.0050, +0.0100 -> +500, +1000
+    // デルタ: +0.0050, +0.0100 -> +500, +1000
     // 500 << 1 = 1000 = 1111101000_2
     // 11101000 -> 101000(40) -> 101000 + 63 = 103('g')
     // 111 -> 000111(7) -> 7+63=70('F')
-    // -> _ibE_seK_gF_qJ (Approximate manual check, let's use a generated string for reliability)
+    // -> _ibE_seK_gF_qJ (近似的な手動チェック、信頼性のために生成された文字列を使用しましょう)
     
-    // Let's use a simpler known string or just constructed coordinates to be safe.
-    // Or we can rely on the fact that we've tested PolylineDecoder separately,
-    // and here we just test that SpotService correctly calls it and filters.
+    // 安全のために、より単純な既知の文字列または構築された座標を使用しましょう。
+    // または、PolylineDecoderを別途テストしたという事実に頼り、
+    // ここではSpotServiceが正しく呼び出してフィルタリングすることだけをテストすることもできます。
     
-    // Let's mock the string with one that we know decodes to the path in Simple test:
+    // Simpleテストのパスにデコードされることがわかっている文字列でモックしましょう：
     // (35.681236, 139.767125) -> (35.698383, 139.773072)
-    // This is hard to encode manually perfectly.
+    // これを手動で完全にエンコードするのは困難です。
     
-    // Alternative: Use a simple integer-coordinate path for testing logic?
-    // No, SpotService uses real lat/lon.
+    // 代替案：ロジックのテストに単純な整数座標パスを使用しますか？
+    // いいえ、SpotServiceは実際の緯度/経度を使用します。
     
-    // Let's use the decoder to generate the string first? No, decoder is decode-only.
-    // I will use a pre-calculated string for: (35.68, 139.76) -> (35.70, 139.78)
-    // This passes near Tokyo Station (35.681236, 139.767125) and Akihabara (35.698383, 139.773072)
-    // Polyline: "_ibE_seK_}hI_}hR" (approximate)
+    // デコーダーを使用して最初に文字列を生成しますか？ いいえ、デコーダーはデコードのみです。
+    // (35.68, 139.76) -> (35.70, 139.78) 用に事前に計算された文字列を使用します
+    // これは東京駅 (35.681236, 139.767125) と秋葉原 (35.698383, 139.773072) の近くを通ります
+    // ポリライン: "_ibE_seK_}hI_}hR" (近似)
     
-    // Valid string for (35.68, 139.76) to (35.70, 139.78):
+    // (35.68, 139.76) から (35.70, 139.78) への有効な文字列:
     // 35.68000, 139.76000
     // 35.70000, 139.78000
-    // String: "_ibE_seK_qiF_qoJ"
+    // 文字列: "_ibE_seK_qiF_qoJ"
     // 35.68000 -> 3568000
     // 139.76000 -> 13976000
     // 35.70000 - 35.68000 = 2000
     // 139.78000 - 139.76000 = 2000
     
-    // Let's try to verify this string manually or trust it.
-    // If decoding fails/is off, the test might fail gracefully (no spots found).
-    // Let's use the exact coordinates of the spots to ensure match if we can't easily encode.
-    // Actually, I can add an Encode function to utility for testing?
-    // Or just manually encode:
-    // Point 1: 35.68124, 139.76713 (Tokyo Station approx)
-    // Point 2: 35.69838, 139.77307 (Akihabara approx)
+    // この文字列を手動で確認するか、信頼してみましょう。
+    // デコードに失敗/ずれている場合、テストは適切に失敗する可能性があります（スポットが見つからない）。
+    // 簡単にエンコードできない場合は、スポットの正確な座標を使用して一致することを確認しましょう。
+    // 実際、テスト用にEncode関数をユーティリティに追加できますか？
+    // または、手動でエンコードするだけです：
+    // ポイント 1: 35.68124, 139.76713 (東京駅 近似)
+    // ポイント 2: 35.69838, 139.77307 (秋葉原 近似)
     
     // 35.68124 -> 3568124. 139.76713 -> 13976713
-    // _kbE_~eK  <-- likely wrong manually.
+    // _kbE_~eK  <-- 手動では間違っている可能性が高いです。
     
-    // Let's use the string from the PolylineDecoderTest which we know decodes to (38.5, -120.2)
-    // and add a dummy spot there for this test case?
-    // But SpotService loads hardcoded spots around Tokyo.
+    // PolylineDecoderTestの文字列を使用して (38.5, -120.2) にデコードされることがわかっているので、
+    // このテストケースのためにそこにダミースポットを追加しますか？
+    // しかし、SpotServiceは東京周辺のハードコードされたスポットをロードします。
     
-    // OK, let's use a very simple vertical line passing through Tokyo Station.
-    // Spot: 35.681236, 139.767125
-    // Line: (35.68000, 139.76713) -> (35.69000, 139.76713)
-    // Lat change: +0.01000 (+1000). Lon change: 0.
-    // Start: 35.68000, 139.76713
-    // 35.68000 -> 3568000 -> 1101100110111000000000 (binary) ... hard.
+    // OK、東京駅を通る非常に単純な垂直線を使用しましょう。
+    // スポット: 35.681236, 139.767125
+    // 線: (35.68000, 139.76713) -> (35.69000, 139.76713)
+    // 緯度変化: +0.01000 (+1000). 経度変化: 0.
+    // 開始: 35.68000, 139.76713
+    // 35.68000 -> 3568000 -> 1101100110111000000000 (2進数) ... 難しいです。
     
-    // Easier approach: Use an online tool to get a polyline for "Tokyo Station to Akihabara"
-    // and use that string.
-    // Tokyo Station: 35.681236, 139.767125
-    // Akihabara: 35.698383, 139.773072
-    // OSRM/Google encoded polyline (approx):
-    // "{kbEua}K_@s@u@e@k@g@i@e@c@a@_@??" (Just a guess? No.)
+    // より簡単なアプローチ: オンラインツールを使用して「東京駅から秋葉原」のポリラインを取得し、
+    // その文字列を使用します。
+    // 東京駅: 35.681236, 139.767125
+    // 秋葉原: 35.698383, 139.773072
+    // OSRM/Google エンコード済みポリライン (近似):
+    // "{kbEua}K_@s@u@e@k@g@i@e@c@a@_@??" (単なる推測ですか？ いいえ。)
     
-    // Let's try a string that is KNOWN to be valid and verify if it finds anything.
-    // If not, we can rely on `searchSpotsAlongPath` test and unit test for decoder.
-    // But integration test is better.
+    // 有効であることが「わかっている」文字列を試して、何かが見つかるか確認してみましょう。
+    // そうでない場合は、`searchSpotsAlongPath` テストとデコーダーの単体テストに頼ることができます。
+    // しかし、統合テストの方が優れています。
     
-    // I will use this simple string: "_ibE_seK_qiF_qoJ"
-    // Use a known polyline string from PolylineDecoderTest that decodes to (38.5, -120.2)
-    // and we have added "Polyline Test Spot" at this location in spots_test.csv.
+    // この単純な文字列を使用します: "_ibE_seK_qiF_qoJ"
+    // (38.5, -120.2) にデコードされるPolylineDecoderTestの既知のポリライン文字列を使用し、
+    // spots_test.csvのこの場所に "Polyline Test Spot" を追加しました。
     std::string polyline = "_p~iF~ps|U";
-    // Decodes to (38.5, -120.2)
+    // (38.5, -120.2) にデコードされます
     
     auto spots = spotService->searchSpotsAlongRoute(polyline, 100.0);
     

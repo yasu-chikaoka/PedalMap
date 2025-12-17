@@ -20,9 +20,9 @@ void SpotService::loadSpotsFromCsv(const std::string& filePath) {
     }
 
     std::string line;
-    // Skip header if it exists? Assuming no header or handled by parsing logic
-    // Let's assume the first line might be a header if it contains non-numeric lat/lon
-    // For simplicity, assume NO header for now, or check first char.
+    // ヘッダーが存在する場合はスキップしますか？ ヘッダーがないか、解析ロジックで処理されると仮定します
+    // 最初の行に数値以外の緯度/経度が含まれている場合、ヘッダーである可能性があると仮定しましょう
+    // 簡単にするために、今のところヘッダーは無い、または最初の文字をチェックすると仮定します。
 
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#') continue;
@@ -73,21 +73,21 @@ std::vector<Spot> SpotService::searchSpotsAlongPath(const std::vector<Coordinate
         return results;
     }
 
-    // Convert path to LineString for distance calculation
+    // 距離計算のためにパスをLineStringに変換
     bg::model::linestring<Point> routeLine;
     for (const auto& coord : path) {
         routeLine.push_back(Point(coord.lon, coord.lat));
     }
 
-    // Calculate bounding box of the route to filter candidates from R-tree
+    // R-treeから候補をフィルタリングするためにルートのバウンディングボックスを計算
     bg::model::box<Point> routeBox;
     bg::envelope(routeLine, routeBox);
 
-    // Expand box by buffer distance (approximate conversion to degrees)
-    // 1 degree lat ~ 111km, 1 degree lon ~ 111km * cos(lat)
-    // For simplicity, use a safe upper bound conversion for filtering
+    // バッファ距離分ボックスを拡張（度数への近似変換）
+    // 緯度1度 ~ 111km, 経度1度 ~ 111km * cos(lat)
+    // 簡単にするために、フィルタリングには安全な上限変換を使用します
     const double kMetersToDegrees = 1.0 / 111000.0;
-    double bufferDeg = bufferMeters * kMetersToDegrees * 1.5;  // 1.5x safety margin
+    double bufferDeg = bufferMeters * kMetersToDegrees * 1.5;  // 1.5倍の安全マージン
 
     Point minCorner(bg::get<bg::min_corner, 0>(routeBox) - bufferDeg,
                     bg::get<bg::min_corner, 1>(routeBox) - bufferDeg);
@@ -98,29 +98,27 @@ std::vector<Spot> SpotService::searchSpotsAlongPath(const std::vector<Coordinate
     std::vector<Value> candidates;
     rtree_.query(bgi::intersects(queryBox), std::back_inserter(candidates));
 
-    // Refine results by calculating exact distance to the linestring
+    // LineStringへの正確な距離を計算して結果を絞り込む
     for (const auto& candidate : candidates) {
-        // bg::distance returns distance in the same unit as coordinates (degrees) for
-        // non-cartesian, unless specific strategy is used. But for geographic cs, it might return
-        // meters if correct strategy is applied? Actually for bg::cs::geographic, distance returns
-        // meters by default in recent Boost versions? Let's verify. Usually it returns meters for
-        // geographic systems. If not, we need Haversine strategy.
+        // bg::distanceは、特定のストラテジが使用されない限り、非デカルト座標系では座標と同じ単位（度）で距離を返します。
+        // しかし、地理座標系（geographic cs）の場合、正しいストラテジが適用されればメートルを返すかもしれません。
+        // 実際、最近のBoostバージョンでは、bg::cs::geographicの場合、デフォルトでメートルを返しますか？ 確認しましょう。
+        // 通常、地理座標系の場合はメートルを返します。そうでない場合は、Haversineストラテジが必要です。
 
-        // Boost 1.74+ default strategy for geographic is andoyer or thomas, returning meters.
-        // Let's assume it returns meters. If values are tiny, it's degrees.
+        // Boost 1.74以降の地理座標系のデフォルトストラテジはandoyerまたはthomasで、メートルを返します。
+        // メートルを返すと仮定しましょう。値が極端に小さい場合は度です。
 
         double dist = bg::distance(candidate.first, routeLine);
 
-        // Check if distance is really in meters. If the distance is like 0.001, it's degrees.
-        // Boost.Geometry's behavior depends on version and headers.
-        // To be safe, we can use a custom strategy or check the magnitude.
+        // 距離が本当にメートル単位か確認します。距離が0.001のような場合は度です。
+        // Boost.Geometryの動作はバージョンとヘッダーに依存します。
+        // 安全のために、カスタムストラテジを使用するか、大きさを確認することができます。
 
-        // For simplicity in this environment, let's explicitely use Haversine if we were
-        // calculating point-point. But for Point-LineString, it's more complex.
+        // この環境で簡単にするために、点と点の計算であれば明示的にHaversineを使用しますが、
+        // 点とLineStringの場合はより複雑です。
 
-        // Let's trust the default geographic behavior but add a check.
-        // Since we defined coordinate system as geographic<degree>, the result should be in meters
-        // (technically on the ellipsoid surface).
+        // デフォルトの地理座標系の動作を信頼しますが、チェックを追加します。
+        // 座標系をgeographic<degree>として定義したので、結果はメートル（技術的には楕円体表面上）になるはずです。
 
         if (dist <= bufferMeters) {
             results.push_back(spots_[candidate.second]);

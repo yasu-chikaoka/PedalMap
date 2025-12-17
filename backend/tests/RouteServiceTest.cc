@@ -27,7 +27,7 @@ TEST(RouteServiceTest, ParseWaypoints_Valid) {
 TEST(RouteServiceTest, ParseWaypoints_Invalid) {
     Json::Value json;
     Json::Value waypoint1;
-    waypoint1["latitude"] = 35.0;  // wrong key
+    waypoint1["latitude"] = 35.0;  // 間違ったキー
     waypoint1["lon"] = 139.0;
     json["waypoints"].append(waypoint1);
 
@@ -155,29 +155,28 @@ TEST(RouteServiceTest, CalculateDetourPoint_SameStartEnd) {
 }
 
 TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
-    // Test case where target distance is only slightly longer than straight distance,
-    // potentially causing detourHeight to be <= 0.
+    // 目標距離が直線距離よりわずかに長い場合のテストケース。
+    // detourHeightが0以下になる可能性があります。
     Coordinate start{35.0, 139.0};
-    Coordinate end{35.1, 139.1};  // Approx 15.6km
+    Coordinate end{35.1, 139.1};  // 約15.6km
 
-    // Set target distance to be just over the 1.2x threshold but where calculation might result in
-    // no detour. Straight distance is ~15.6km, threshold is ~18.72km. Let's set a target that is
-    // valid but close to the edge.
+    // 目標距離を1.2倍のしきい値のすぐ上に設定しますが、計算の結果、迂回なしとなる可能性があります。
+    // 直線距離は約15.6km、しきい値は約18.72kmです。
+    // 有効だが境界に近いターゲットを設定します。
     auto result = RouteService::calculateDetourPoint(start, end, 18.8);
-    // Depending on precision, this might or might not produce a point.
-    // The key is to cover the `detourHeight <= 0` branch.
-    // A direct test for that is hard without knowing the exact internal distance calculation.
-    // A value very close to straightDist * 1.2 should trigger it.
-    // Let's manually calculate a distance that will result in a tiny detourHeight.
-    // Let straight = 10km. target must be > 12km. If target = 12.000001,
-    // h = sqrt(6.0000005^2 - 5^2) which is positive.
-    // The existing "NoDetourNeeded" test already covers target < straight * 1.2.
-    // This test ensures the logic just beyond that threshold is also handled.
-    // For now, let's assume the existing tests cover the main paths and we need to target specific
-    // small branches. The `vecLen == 0` case in `calculateDetourPoint` is also covered by
-    // `SameStartEnd`.
+    // 精度によっては、ポイントが生成される場合とされない場合があります。
+    // 重要なのは `detourHeight <= 0` の分岐をカバーすることです。
+    // 正確な内部距離計算を知らずに直接テストするのは困難です。
+    // straightDist * 1.2 に非常に近い値であればトリガーされるはずです。
+    // わずかな detourHeight になるような距離を手動で計算してみましょう。
+    // straight = 10km とします。target は > 12km である必要があります。target = 12.000001 の場合、
+    // h = sqrt(6.0000005^2 - 5^2) であり、正の値になります。
+    // 既存の "NoDetourNeeded" テストはすでに target < straight * 1.2 をカバーしています。
+    // このテストは、そのしきい値を超えた直後のロジックも処理されることを保証します。
+    // 今のところ、既存のテストが主要なパスをカバーしており、特定の小さな分岐をターゲットにする必要があると仮定します。
+    // `calculateDetourPoint` 内の `vecLen == 0` のケースは `SameStartEnd` でもカバーされています。
 
-    // Let's add a test for processRoute with no legs/steps.
+    // legs/stepsがない場合のprocessRouteのテストを追加しましょう。
     osrm::json::Object osrmResult;
     osrm::json::Array routes;
     osrm::json::Object route;
@@ -193,27 +192,26 @@ TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
 }
 
 TEST(RouteServiceTest, CalculateDetourPoint_DetourHeightZero) {
-    // This test case is specifically designed to make `detourHeight` zero or negative.
-    // This happens if `halfTarget * halfTarget - halfStraight * halfStraight` is <= 0.
-    // It means `targetDistance` is less than `straightDist` even if it passes the 1.2 threshold.
-    // Let's create a scenario.
-    // Let straight distance be 10 km. Threshold is 12 km.
-    // Let's assume our calculateDistanceKm has some precision errors and
-    // for a target of 12.1 it calculates straightDist as 12.2.
-    // To test the branch directly:
-    // if targetDistanceKm = 10, straightDist = 9. `10 <= 9 * 1.2` (10.8) is true -> returns
-    // nullopt. Let's create a situation where `halfTarget^2` is slightly less than
-    // `halfStraight^2`. It's already covered by `targetDistanceKm <= straightDist *
-    // kDetourThresholdFactor`. The only way `detourHeight` would be zero is if `targetDistanceKm`
-    // is exactly `straightDist`, which is also covered. The `< 0` part is mathematically impossible
-    // if `target > straight`. So the existing tests seem to cover all logical paths. The remaining
-    // uncovered lines might be related to error conditions or specific floating point outcomes.
-    // Let's try to hit the `vecLen == 0` inside the `detourHeight > 0` block, which is also
-    // impossible.
+    // このテストケースは、`detourHeight` をゼロまたは負にするように特別に設計されています。
+    // これは、`halfTarget * halfTarget - halfStraight * halfStraight` が <= 0 の場合に発生します。
+    // これは、1.2倍のしきい値を超えていても、`targetDistance` が `straightDist` より小さいことを意味します。
+    // シナリオを作成しましょう。
+    // 直線距離を10kmとします。しきい値は12kmです。
+    // calculateDistanceKmにいくつかの精度誤差があり、
+    // ターゲットが12.1の場合にstraightDistを12.2と計算すると仮定します。
+    // 分岐を直接テストするには：
+    // targetDistanceKm = 10, straightDist = 9 の場合。 `10 <= 9 * 1.2` (10.8) は true -> nulloptを返します。
+    // `halfTarget^2` が `halfStraight^2` よりもわずかに小さい状況を作ってみましょう。
+    // それはすでに `targetDistanceKm <= straightDist * kDetourThresholdFactor` でカバーされています。
+    // `detourHeight` がゼロになる唯一の方法は、`targetDistanceKm` が正確に `straightDist` である場合ですが、これもカバーされています。
+    // `target > straight` であれば、`< 0` の部分は数学的に不可能です。
+    // したがって、既存のテストですべての論理パスをカバーしているようです。
+    // 残りのカバーされていない行は、エラー条件や特定の浮動小数点の結果に関連している可能性があります。
+    // `detourHeight > 0` ブロック内の `vecLen == 0` をヒットさせてみましょう（これも不可能です）。
 
-    // Let's re-examine `RouteService.cc`. The uncovered parts are likely exception/error paths
-    // in `snapToRoad` or `processRoute` that are hard to trigger.
-    // Given the difficulty of hitting the remaining few lines with meaningful unit tests,
-    // and that the core logic is covered, we will consider the current coverage sufficient.
-    // The current tests cover all major functionalities.
+    // `RouteService.cc` を再検討しましょう。カバーされていない部分は、`snapToRoad` や `processRoute` の例外/エラーパスであり、
+    // トリガーするのが難しい可能性があります。
+    // 意味のある単体テストで残りの数行をヒットさせることの難しさと、
+    // コアロジックがカバーされていることを考慮すると、現在のカバレッジは十分であると見なします。
+    // 現在のテストはすべての主要な機能をカバーしています。
 }
