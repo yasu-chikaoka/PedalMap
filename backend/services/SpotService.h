@@ -45,7 +45,6 @@ class SpotService {
     std::vector<Spot> spots_;
     bgi::rtree<Value, bgi::quadratic<16>> rtree_;
 
-    void loadSpots(); // Load dummy data (fallback)
     void loadSpotsFromCsv(const std::string& filePath);
 };
 

@@ -51,6 +51,7 @@ if(NOT BUILD_TESTS_ONLY)
         services/OSRMClient.cc
         services/RouteService.cc
         services/SpotService.cc
+        utils/PolylineDecoder.cc
     )
 
     # Link libraries
@@ -74,10 +75,12 @@ add_executable(
   tests/RouteServiceTest.cc
   tests/OSRMIntegrationTest.cc
   tests/SpotServiceTest.cc
+  tests/PolylineDecoderTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
+  utils/PolylineDecoder.cc
 )
 target_link_libraries(
   cycling_backend_test

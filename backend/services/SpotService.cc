@@ -1,5 +1,6 @@
 #include "SpotService.h"
 
+#include "../utils/PolylineDecoder.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -9,34 +10,6 @@ namespace services {
 SpotService::SpotService(const ConfigService& configService) {
     loadSpotsFromCsv(configService.getSpotsCsvPath());
 
-    if (spots_.empty()) {
-        // Fallback to dummy data if CSV load fails or empty
-        loadSpots();
-    }
-}
-
-void SpotService::loadSpots() {
-    // Initialize with dummy data around Tokyo
-    // In a real application, this would load from a CSV or DB
-    spots_ = {
-        {"Cycling Cafe Base", "cafe", 35.681236, 139.767125, 4.5},        // Tokyo Station
-        {"Ramen Energy", "restaurant", 35.698383, 139.773072, 4.2},       // Akihabara
-        {"Imperial Palace Rest", "park", 35.685175, 139.752800, 4.8},     // Imperial Palace
-        {"Skytree View", "sightseeing", 35.710063, 139.810700, 4.6},      // Skytree
-        {"Ueno Park Cafe", "cafe", 35.714074, 139.774109, 4.3},           // Ueno
-        {"Asakusa Temple", "sightseeing", 35.714765, 139.796655, 4.7},    // Asakusa
-        {"Odaiba Seaside", "park", 35.629000, 139.776000, 4.4},           // Odaiba
-        {"Shinjuku Gyoen", "park", 35.685176, 139.710052, 4.6},           // Shinjuku
-        {"Shibuya Crossing", "sightseeing", 35.659482, 139.700553, 4.5},  // Shibuya
-        {"Roppongi Hills", "shopping", 35.660464, 139.729249, 4.4}        // Roppongi
-    };
-
-    // Build R-tree
-    for (size_t i = 0; i < spots_.size(); ++i) {
-        // Create point (longitude, latitude) order for Boost.Geometry
-        Point p(spots_[i].lon, spots_[i].lat);
-        rtree_.insert(std::make_pair(p, i));
-    }
 }
 
 void SpotService::loadSpotsFromCsv(const std::string& filePath) {
@@ -85,9 +58,12 @@ void SpotService::loadSpotsFromCsv(const std::string& filePath) {
 
 std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polylineGeometry,
                                                      double bufferMeters) {
-    // TODO: Implement polyline decoding and search
-    // For now, return empty result
-    return {};
+    if (polylineGeometry.empty()) {
+        return {};
+    }
+
+    auto path = utils::PolylineDecoder::decode(polylineGeometry);
+    return searchSpotsAlongPath(path, bufferMeters);
 }
 
 std::vector<Spot> SpotService::searchSpotsAlongPath(const std::vector<Coordinate>& path,
