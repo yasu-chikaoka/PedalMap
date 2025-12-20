@@ -10,9 +10,9 @@
 
 #include "../services/RouteService.h"
 
-// OSRMとの統合テスト
-// 実際のデータファイル(/data/kanto-latest.osrm)を使用して、
-// Nearest機能やRoute機能が正常に動作するかを確認する。
+// OSRM統合テスト
+// 実際のデータファイル（/data/kanto-latest.osrm）を使用して、
+// NearestおよびRoute機能が期待どおりに機能することを確認します。
 class OSRMIntegrationTest : public ::testing::Test {
    protected:
     std::unique_ptr<osrm::OSRM> osrm_;
@@ -23,17 +23,17 @@ class OSRMIntegrationTest : public ::testing::Test {
         config.use_shared_memory = false;
         config.algorithm = osrm::EngineConfig::Algorithm::CH;
 
-        // データファイルが存在しない環境（CIなど）ではテストをスキップするようにしたいが、
-        // 今回はコンテナ内で実行するためデータがあると仮定する。
-        // ファイルの存在チェックを入れるのが丁寧。
-        // .osrm ファイルそのものがない場合もあるため、構成ファイルの一つ(.hsgrなど)を確認する
+        // データファイルが存在しない環境（CIなど）ではテストをスキップします。
+        // コンテナ内で実行しているため、データが存在すると想定します。
+        // ファイルの存在を確認することをお勧めします。
+        // .osrmファイル自体が存在しない場合があるため、設定ファイルの1つ（.hsgrなど）を確認します
         const std::string osrm_path = "/data/kanto-latest.osrm";
         const std::string check_path = "/data/kanto-latest.osrm.hsgr";
 
         if (access(check_path.c_str(), F_OK) == -1) {
-            // 別のファイル形式(CH以外)かもしれないので、とりあえず警告しつつも進むか、スキップするか。
-            // ここでは .fileIndex をチェックするなど代替案もあるが、シンプルにスキップ。
-            // もし .osrm があるならそちらをチェックすべきだが、リストになかったため。
+            // 別のファイル形式（CH以外）である可能性があるため、警告を出して続行するかスキップします。
+            // ここでは.fileIndexの確認など代替案もありますが、単純にスキップします。
+            // .osrmがある場合はそちらを確認すべきですが、リストになかったためです。
             GTEST_SKIP() << "OSRM data file not found at " << check_path;
         }
 
@@ -48,9 +48,9 @@ class OSRMIntegrationTest : public ::testing::Test {
 TEST_F(OSRMIntegrationTest, SnapToRoadTest) {
     if (!osrm_) return;
 
-    // 道路から少し離れた座標（例：皇居の中など）
-    // 皇居の概略中心: 35.685175, 139.7528
-    // 最寄りの道路（内堀通りなど）にスナップされるはず
+    // 道路から少し離れた座標（例：皇居内など）
+    // 皇居のおおよその中心: 35.685175, 139.7528
+    // 最寄りの道路（内堀通りなど）にスナップされるはずです
     double lat = 35.685175;
     double lon = 139.7528;
 
@@ -83,20 +83,6 @@ TEST_F(OSRMIntegrationTest, SnapToRoadTest) {
     // ただし、偶然道路上だった場合は同じになるので、誤差判定
     EXPECT_TRUE(std::abs(lat - snappedLat) > 0.00001 || std::abs(lon - snappedLon) > 0.00001)
         << "Coordinate should be snapped to a road";
-}
-
-TEST_F(OSRMIntegrationTest, RouteServiceSnapToRoad) {
-    if (!osrm_) return;
-
-    // A coordinate slightly off a road
-    services::Coordinate coord{35.685175, 139.7528};
-
-    auto snapped = services::RouteService::snapToRoad(*osrm_, coord);
-    ASSERT_TRUE(snapped.has_value());
-
-    // Check if the coordinate has moved
-    EXPECT_TRUE(std::abs(coord.lat - snapped->lat) > 0.00001 ||
-                std::abs(coord.lon - snapped->lon) > 0.00001);
 }
 
 TEST_F(OSRMIntegrationTest, RouteCalculationTest) {

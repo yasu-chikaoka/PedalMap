@@ -6,16 +6,17 @@
 #include <string>
 #include <vector>
 
-#include "RouteService.h"  // For Coordinate struct
+#include "ConfigService.h"
+#include "RouteService.h"  // Coordinate構造体用
 
 namespace services {
 
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 
-// Define point using geographic coordinate system (lat, lon in degrees)
+// 地理座標系（緯度、経度は度数法）を使用してポイントを定義
 using Point = bg::model::point<double, 2, bg::cs::geographic<bg::degree>>;
-using Value = std::pair<Point, size_t>;  // Point and Index in spots_ vector
+using Value = std::pair<Point, size_t>;  // ポイントとspots_ベクトルのインデックス
 
 struct Spot {
     std::string name;
@@ -27,21 +28,21 @@ struct Spot {
 
 class SpotService {
    public:
-    SpotService();
+    explicit SpotService(const ConfigService& configService);
 
-    // Search spots along a route (polyline)
-    // polylineGeometry: Encoded polyline string (not implemented yet, taking path of coordinates)
-    // For now, we simulate "along route" by buffering around points or simple path logic.
-    // To properly support "along route", we need to convert polyline to LineString and use
-    // buffer/distance.
-    std::vector<Spot> searchSpotsAlongPath(const std::vector<Coordinate>& path,
-                                           double bufferMeters);
+    // ルート（ポリライン）沿いのスポットを検索
+    // polylineGeometry: エンコードされたポリライン文字列（未実装、現在は座標のパスを使用）
+    // 現時点では、ポイント周辺のバッファリングや単純なパスロジックで「ルート沿い」をシミュレートしています。
+    // 「ルート沿い」を適切にサポートするには、ポリラインをLineStringに変換し、buffer/distanceを使用する必要があります。
+    // ルートジオメトリ（ポリライン）沿いのスポットを検索
+    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
+                                            double bufferMeters);
 
    private:
     std::vector<Spot> spots_;
     bgi::rtree<Value, bgi::quadratic<16>> rtree_;
 
-    void loadSpots();
+    void loadSpotsFromCsv(const std::string& filePath);
 };
 
 }  // namespace services

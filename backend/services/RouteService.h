@@ -30,8 +30,6 @@ class RouteService {
 
     static std::vector<Coordinate> parseWaypoints(const Json::Value& json);
 
-    static std::optional<Coordinate> snapToRoad(const osrm::OSRM& osrm, const Coordinate& coord);
-
     static osrm::RouteParameters buildRouteParameters(const Coordinate& start,
                                                       const Coordinate& end,
                                                       const std::vector<Coordinate>& waypoints);

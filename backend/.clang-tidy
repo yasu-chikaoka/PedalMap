@@ -1,14 +1,14 @@
 ---
-# Enable standard checks including:
-# - clang-diagnostic-*: Standard compiler warnings
-# - clang-analyzer-*: Static analysis checks
-# - bugprone-*: Checks for bug-prone code constructs
-# - modernize-*: Checks advocating for modern C++ features
-# - performance-*: Checks for performance improvement opportunities
-# - readability-*: Checks for code readability
+# 以下の標準チェックを有効化:
+# - clang-diagnostic-*: 標準的なコンパイラ警告
+# - clang-analyzer-*: 静的解析チェック
+# - bugprone-*: バグが発生しやすいコード構造のチェック
+# - modernize-*: 最新のC++機能の使用を推奨するチェック
+# - performance-*: パフォーマンス改善の機会をチェック
+# - readability-*: コードの可読性チェック
 #
-# Exclude:
-# - modernize-use-trailing-return-type: Too verbose for standard functions
+# 除外:
+# - modernize-use-trailing-return-type: 標準的な関数には冗長すぎるため
 Checks:          'clang-diagnostic-*,clang-analyzer-*,bugprone-*,modernize-*,performance-*,readability-*,-modernize-use-trailing-return-type'
 WarningsAsErrors: ''
 HeaderFilterRegex: 'backend/.*'
