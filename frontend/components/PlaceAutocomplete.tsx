@@ -25,7 +25,6 @@ export const PlaceAutocomplete = memo(
 
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
-        console.log('PlaceAutocomplete selected:', place);
 
         if (!place.geometry || !place.geometry.location) {
           console.warn(

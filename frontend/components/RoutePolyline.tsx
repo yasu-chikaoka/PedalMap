@@ -19,13 +19,21 @@ export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
     }
 
     const path = geometryLibrary.encoding.decodePath(encodedGeometry);
+    
+    // デバッグログ追加：デコードされたパスの座標を確認
+    console.log("Encoded Geometry:", encodedGeometry);
+    console.log("Decoded Path Length:", path.length);
+    if (path.length > 0) {
+        console.log("Decoded Path First Point:", path[0].toJSON());
+        console.log("Decoded Path Last Point:", path[path.length-1].toJSON());
+    }
 
     const newPolyline = new google.maps.Polyline({
       path,
       geodesic: true,
-      strokeColor: '#FF0000',
-      strokeOpacity: 1.0,
-      strokeWeight: 4,
+      strokeColor: '#0000FF', // 青色に変更して視認性を高める
+      strokeOpacity: 0.8,
+      strokeWeight: 6,
     });
 
     newPolyline.setMap(map);
@@ -34,7 +42,14 @@ export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
     // ルート全体が見えるようにズーム調整
     const bounds = new google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
-    map.fitBounds(bounds);
+    
+    // 境界が有効か確認してからfitBoundsを実行
+    if (!bounds.isEmpty()) {
+        console.log("Fitting bounds to:", bounds.toJSON());
+        map.fitBounds(bounds);
+    } else {
+        console.warn("Bounds are empty, skipping fitBounds");
+    }
 
     return () => {
       if (newPolyline) {

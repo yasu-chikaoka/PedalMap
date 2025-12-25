@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -38,6 +37,7 @@ interface SortableItemProps {
   waypoint: Waypoint;
   onRemove: (id: string) => void;
   onPlaceSelect: (id: string, place: google.maps.places.PlaceResult) => void;
+  onCoordinateChange: (id: string, lat: number, lng: number) => void;
   apiKey: string;
 }
 
@@ -46,6 +46,7 @@ const SortableItem = ({
   waypoint,
   onRemove,
   onPlaceSelect,
+  onCoordinateChange,
   apiKey,
 }: SortableItemProps) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -75,17 +76,45 @@ const SortableItem = ({
             onPlaceSelect={(place) => onPlaceSelect(id, place)}
             placeholder="経由地を入力"
             value={waypoint.name}
-            onChange={(val) => {
+            onChange={() => {
               /* テキスト変更だけなら親の状態は更新しない（Autocomplete選択で更新） */
             }}
           />
         ) : (
-          <input
-            type="text"
-            className="w-full p-1 border rounded text-sm text-gray-900"
-            value={`Lat: ${waypoint.location.lat.toFixed(4)}, Lng: ${waypoint.location.lng.toFixed(4)}`}
-            readOnly
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              className="w-full p-1 border rounded text-sm text-gray-900"
+              value={waypoint.location.lat}
+              onChange={(e) =>
+                onCoordinateChange(
+                  id,
+                  parseFloat(e.target.value),
+                  waypoint.location.lng,
+                )
+              }
+              step="0.000001"
+              placeholder="Lat"
+              // Prevent drag events from interfering with input
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+            <input
+              type="number"
+              className="w-full p-1 border rounded text-sm text-gray-900"
+              value={waypoint.location.lng}
+              onChange={(e) =>
+                onCoordinateChange(
+                  id,
+                  waypoint.location.lat,
+                  parseFloat(e.target.value),
+                )
+              }
+              step="0.000001"
+              placeholder="Lng"
+              // Prevent drag events from interfering with input
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          </div>
         )}
       </div>
       <button
@@ -158,6 +187,20 @@ export const WaypointsList = ({
     );
   };
 
+  const updateWaypointCoordinates = (id: string, lat: number, lng: number) => {
+    setWaypoints(
+      waypoints.map((wp) => {
+        if (wp.id === id) {
+          return {
+            ...wp,
+            location: { lat, lng },
+          };
+        }
+        return wp;
+      }),
+    );
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center mb-2">
@@ -186,6 +229,7 @@ export const WaypointsList = ({
               waypoint={wp}
               onRemove={removeWaypoint}
               onPlaceSelect={updateWaypoint}
+              onCoordinateChange={updateWaypointCoordinates}
               apiKey={apiKey}
             />
           ))}

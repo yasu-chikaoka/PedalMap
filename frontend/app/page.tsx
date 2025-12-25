@@ -6,50 +6,58 @@ import { APIProvider, Map } from '@vis.gl/react-google-maps';
 import { RoutePolyline } from '@/components/RoutePolyline';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { WaypointsList } from '@/components/WaypointsList';
-
-// APIキー設定
-// ここにAPIキーを設定するか、環境変数 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を使用します
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-// APIの型定義
-interface RouteSummary {
-  total_distance_m: number;
-  estimated_moving_time_s: number;
-}
-
-interface Stop {
-  name: string;
-  type: string;
-  rating: number;
-  location: { lat: number; lon: number };
-}
-
-interface RouteResponse {
-  summary: RouteSummary;
-  geometry: string; // Encoded Polyline
-  stops?: Stop[];
-}
-
-interface Waypoint {
-  id: string;
-  name: string;
-  location: { lat: number; lng: number };
-}
+import type {
+  RouteResponse,
+  Waypoint,
+} from '@/types';
 
 export default function Home() {
+  // APIキー設定
+  // ここにAPIキーを設定するか、環境変数 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を使用します
+  const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:8080';
+
   const [startPoint, setStartPoint] = useState({
-    lat: 35.681236,
-    lng: 139.767125,
-  }); // 東京駅
-  const [endPoint, setEndPoint] = useState({ lat: 35.685175, lng: 139.7528 }); // 皇居
+    lat: 35.170915, // 名古屋駅
+    lng: 136.881537,
+  });
+  const [endPoint, setEndPoint] = useState({ lat: 35.181446, lng: 136.906398 }); // 名古屋城
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
-  const [startPlaceName, setStartPlaceName] = useState('東京駅');
-  const [endPlaceName, setEndPlaceName] = useState('皇居');
+  const [startPlaceName, setStartPlaceName] = useState('名古屋駅');
+  const [endPlaceName, setEndPlaceName] = useState('名古屋城');
   const [targetDistance, setTargetDistance] = useState<number>(30); // デフォルト30km
   const [targetElevation, setTargetElevation] = useState<number>(200); // デフォルト200m
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 現在地取得処理
+  const getCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setStartPoint({ lat: latitude, lng: longitude });
+        setStartPlaceName('現在地');
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error getting location:', err);
+        setError('現在地の取得に失敗しました。');
+        setLoading(false);
+      }
+    );
+  }, []);
+
+  // 初回ロード時に現在地を取得するかどうかはUX次第だが、今回はボタン操作またはデフォルト（名古屋）とする
+  // useEffect(() => {
+  //   getCurrentLocation();
+  // }, [getCurrentLocation]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -58,7 +66,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        'http://localhost:8080/api/v1/route/generate',
+        `${API_ENDPOINT}/api/v1/route/generate`,
         {
           method: 'POST',
           headers: {
@@ -143,9 +151,18 @@ export default function Home() {
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
-                  Start
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm text-gray-600">
+                    Start
+                  </label>
+                  <button
+                    onClick={getCurrentLocation}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    title="現在地を取得"
+                  >
+                    <Navigation size={12} /> 現在地
+                  </button>
+                </div>
                 {hasApiKey ? (
                   <PlaceAutocomplete
                     onPlaceSelect={handleStartPlaceSelect}
@@ -324,6 +341,15 @@ export default function Home() {
                     routeData.summary.estimated_moving_time_s / 60,
                   )}{' '}
                   <span className="text-sm font-normal">min</span>
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase">
+                  Elevation Gain
+                </p>
+                <p className="text-xl font-mono font-bold text-gray-800">
+                  {routeData.summary.total_elevation_gain_m}{' '}
+                  <span className="text-sm font-normal">m</span>
                 </p>
               </div>
             </div>

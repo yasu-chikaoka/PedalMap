@@ -13,6 +13,9 @@ services:
     # 開発中はコンテナを常駐させるため、tty: true で起動維持させる。
     tty: true
     command: /bin/bash
+    environment:
+      - OSRM_DATA_PATH=/data/chubu-latest.osrm
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
 
   frontend:
     image: node:20-alpine
@@ -24,3 +27,6 @@ services:
     working_dir: /app
     tty: true
     command: /bin/sh
+    environment:
+      - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${GOOGLE_PLACES_API_KEY}
+      - NEXT_PUBLIC_API_ENDPOINT=${NEXT_PUBLIC_API_ENDPOINT}

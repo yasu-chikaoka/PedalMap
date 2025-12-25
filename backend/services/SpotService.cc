@@ -1,130 +1,93 @@
 #include "SpotService.h"
 
-#include <fstream>
+#include <drogon/HttpClient.h>
+#include <future>
 #include <iostream>
-#include <sstream>
 
 #include "../utils/PolylineDecoder.h"
 
 namespace services {
 
-SpotService::SpotService(const ConfigService& configService) {
-    loadSpotsFromCsv(configService.getSpotsCsvPath());
-}
-
-void SpotService::loadSpotsFromCsv(const std::string& filePath) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open spots CSV file: " << filePath << std::endl;
-        return;
-    }
-
-    std::string line;
-    // ヘッダーが存在する場合はスキップしますか？
-    // ヘッダーがないか、解析ロジックで処理されると仮定します
-    // 最初の行に数値以外の緯度/経度が含まれている場合、ヘッダーである可能性があると仮定しましょう
-    // 簡単にするために、今のところヘッダーは無い、または最初の文字をチェックすると仮定します。
-
-    while (std::getline(file, line)) {
-        if (line.empty() || line[0] == '#') continue;
-
-        std::stringstream ss(line);
-        std::string segment;
-        std::vector<std::string> parts;
-
-        while (std::getline(ss, segment, ',')) {
-            parts.push_back(segment);
-        }
-
-        if (parts.size() >= 5) {
-            try {
-                Spot spot;
-                spot.name = parts[0];
-                spot.type = parts[1];
-                spot.lat = std::stod(parts[2]);
-                spot.lon = std::stod(parts[3]);
-                spot.rating = std::stod(parts[4]);
-
-                spots_.push_back(spot);
-
-                Point p(spot.lon, spot.lat);
-                rtree_.insert(std::make_pair(p, spots_.size() - 1));
-            } catch (const std::exception& e) {
-                std::cerr << "Error parsing spot line: " << line << " (" << e.what() << ")"
-                          << std::endl;
-            }
-        }
-    }
-    std::cout << "Loaded " << spots_.size() << " spots from " << filePath << std::endl;
-}
+SpotService::SpotService(const ConfigService& configService) : configService_(configService) {}
 
 std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polylineGeometry,
                                                      double bufferMeters) {
-    if (polylineGeometry.empty()) {
+    if (polylineGeometry.empty()) return {};
+
+    std::string apiKey = configService_.getGoogleApiKey();
+    if (apiKey.empty()) {
+        // APIキーがない場合は空リストを返す（ログ出力しても良い）
+        std::cerr << "[WARN] Google API Key is not set. Skipping spot search." << std::endl;
         return {};
     }
 
     auto path = utils::PolylineDecoder::decode(polylineGeometry);
-    std::vector<Spot> results;
-    if (path.empty()) {
-        return results;
-    }
+    if (path.empty()) return {};
 
-    // 距離計算のためにパスをLineStringに変換
-    bg::model::linestring<Point> routeLine;
-    for (const auto& coord : path) {
-        routeLine.push_back(Point(coord.lon, coord.lat));
-    }
+    // 簡易実装：ルートの中間地点を1箇所だけ検索対象とする
+    auto midPoint = path[path.size() / 2];
 
-    // R-treeから候補をフィルタリングするためにルートのバウンディングボックスを計算
-    bg::model::box<Point> routeBox;
-    bg::envelope(routeLine, routeBox);
+    std::cout << "[DEBUG] Searching spots around: " << midPoint.lat << ", " << midPoint.lon << std::endl;
 
-    // バッファ距離分ボックスを拡張（度数への近似変換）
-    // 緯度1度 ~ 111km, 経度1度 ~ 111km * cos(lat)
-    // 簡単にするために、フィルタリングには安全な上限変換を使用します
-    const double kMetersToDegrees = 1.0 / 111000.0;
-    double bufferDeg = bufferMeters * kMetersToDegrees * 1.5;  // 1.5倍の安全マージン
+    // 非同期リクエストを同期的に待機するためのPromise
+    std::promise<std::vector<Spot>> promise;
+    auto future = promise.get_future();
 
-    Point minCorner(bg::get<bg::min_corner, 0>(routeBox) - bufferDeg,
-                    bg::get<bg::min_corner, 1>(routeBox) - bufferDeg);
-    Point maxCorner(bg::get<bg::max_corner, 0>(routeBox) + bufferDeg,
-                    bg::get<bg::max_corner, 1>(routeBox) + bufferDeg);
-    bg::model::box<Point> queryBox(minCorner, maxCorner);
+    auto client = drogon::HttpClient::newHttpClient("https://maps.googleapis.com");
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Get);
+    req->setPath("/maps/api/place/nearbysearch/json");
+    req->setParameter("location", std::to_string(midPoint.lat) + "," + std::to_string(midPoint.lon));
+    
+    // ConfigServiceから半径を取得（なければデフォルト）
+    double radius = configService_.getSpotSearchRadius();
+    if (radius <= 0) radius = 1000.0;
+    req->setParameter("radius", std::to_string(radius));
+    
+    req->setParameter("type", "restaurant|cafe|convenience_store|point_of_interest");
+    req->setParameter("key", apiKey);
+    req->setParameter("language", "ja");
 
-    std::vector<Value> candidates;
-    rtree_.query(bgi::intersects(queryBox), std::back_inserter(candidates));
-
-    // LineStringへの正確な距離を計算して結果を絞り込む
-    for (const auto& candidate : candidates) {
-        // bg::distanceは、特定のストラテジが使用されない限り、非デカルト座標系では座標と同じ単位（度）で距離を返します。
-        // しかし、地理座標系（geographic
-        // cs）の場合、正しいストラテジが適用されればメートルを返すかもしれません。
-        // 実際、最近のBoostバージョンでは、bg::cs::geographicの場合、デフォルトでメートルを返しますか？
-        // 確認しましょう。
-        // 通常、地理座標系の場合はメートルを返します。そうでない場合は、Haversineストラテジが必要です。
-
-        // Boost 1.74以降の地理座標系のデフォルトストラテジはandoyerまたはthomasで、メートルを返します。
-        // メートルを返すと仮定しましょう。値が極端に小さい場合は度です。
-
-        double dist = bg::distance(candidate.first, routeLine);
-
-        // 距離が本当にメートル単位か確認します。距離が0.001のような場合は度です。
-        // Boost.Geometryの動作はバージョンとヘッダーに依存します。
-        // 安全のために、カスタムストラテジを使用するか、大きさを確認することができます。
-
-        // この環境で簡単にするために、点と点の計算であれば明示的にHaversineを使用しますが、
-        // 点とLineStringの場合はより複雑です。
-
-        // デフォルトの地理座標系の動作を信頼しますが、チェックを追加します。
-        // 座標系をgeographic<degree>として定義したので、結果はメートル（技術的には楕円体表面上）になるはずです。
-
-        if (dist <= bufferMeters) {
-            results.push_back(spots_[candidate.second]);
+    client->sendRequest(req, [&promise](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+        std::vector<Spot> spots;
+        if (result == drogon::ReqResult::Ok && response->getStatusCode() == 200) {
+            auto jsonPtr = response->getJsonObject();
+            if (jsonPtr && jsonPtr->isMember("results") && (*jsonPtr)["results"].isArray()) {
+                const auto& results = (*jsonPtr)["results"];
+                for (const auto& item : results) {
+                    Spot spot;
+                    spot.name = item.get("name", "").asString();
+                    if (item.isMember("geometry") && item["geometry"].isMember("location")) {
+                        spot.lat = item["geometry"]["location"].get("lat", 0.0).asDouble();
+                        spot.lon = item["geometry"]["location"].get("lng", 0.0).asDouble();
+                    }
+                    spot.rating = item.get("rating", 0.0).asDouble();
+                    
+                    if (item.isMember("types") && item["types"].isArray() && !item["types"].empty()) {
+                        spot.type = item["types"][0].asString();
+                    } else {
+                        spot.type = "unknown";
+                    }
+                    
+                    spots.push_back(spot);
+                }
+            } else {
+                 std::cerr << "[ERROR] Invalid response from Google Places API" << std::endl;
+            }
+        } else {
+            std::cerr << "[ERROR] Google Places API request failed: " 
+                      << (response ? response->getBody() : "Network Error") << std::endl;
         }
-    }
+        promise.set_value(spots);
+    });
 
-    return results;
+    // タイムアウト設定 (5秒)
+    if (future.wait_for(std::chrono::seconds(5)) == std::future_status::ready) {
+        return future.get();
+    } else {
+        std::cerr << "[WARN] Spot search timed out" << std::endl;
+        return {};
+    }
 }
 
 }  // namespace services

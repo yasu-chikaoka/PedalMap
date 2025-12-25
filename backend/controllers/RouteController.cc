@@ -50,12 +50,15 @@ void Route::generate(const HttpRequestPtr &req,
         (*jsonPtr)["preferences"].isMember("target_distance_km")) {
         targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
     }
+    
+    std::cout << "[DEBUG] Target Distance: " << targetDistanceKm << " km" << std::endl;
 
     if (waypoints.empty() && targetDistanceKm > 0) {
         if (auto viaPoint = RouteService::calculateDetourPoint(start, end, targetDistanceKm)) {
             LOG_DEBUG << "Calculated Detour Point: (" << viaPoint->lat << ", " << viaPoint->lon
                       << ")";
             // OSRMClientを使用してポイントを道路上にスナップする
+            /*
             osrm::NearestParameters params;
             params.coordinates.push_back({osrm::util::FloatLongitude{viaPoint->lon},
                                           osrm::util::FloatLatitude{viaPoint->lat}});
@@ -71,6 +74,9 @@ void Route::generate(const HttpRequestPtr &req,
                 LOG_WARN << "Failed to snap detour point to road, using original coordinate.";
                 waypoints.push_back(*viaPoint);
             }
+            */
+           // Skip manual snapping for now to debug
+           waypoints.push_back(*viaPoint);
         }
     }
 
@@ -92,6 +98,8 @@ void Route::generate(const HttpRequestPtr &req,
         callback(resp);
         return;
     }
+
+    LOG_DEBUG << "Route geometry: " << routeResult->geometry;
 
     Json::Value respJson;
     respJson["summary"]["total_distance_m"] = routeResult->distance_m;

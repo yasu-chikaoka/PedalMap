@@ -86,9 +86,11 @@ target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
   osrm
+  Drogon::Drogon
   ${Boost_LIBRARIES}
   Boost::thread
   Boost::filesystem
+
   jsoncpp
   pthread
   z

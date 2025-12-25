@@ -23,7 +23,7 @@ ConfigService::ConfigService() {
     }
 
     // 環境変数からロードするか、デフォルト値を使用する
-    const char* osrmPathEnv = std::getenv("OSRM_PATH");
+    const char* osrmPathEnv = std::getenv("OSRM_DATA_PATH");
     std::string osrmTarget = osrmPathEnv ? osrmPathEnv : "kanto-latest.osrm";
     osrmPath_ = findPath(osrmTarget, osrmTarget);
     if (osrmPath_.empty() || osrmPath_ == osrmTarget) {
@@ -42,6 +42,9 @@ ConfigService::ConfigService() {
     if (!csvPathEnv && (spotsCsvPath_ == csvTarget) && std::ifstream(spotsCsvPath_).fail()) {
         spotsCsvPath_ = "/data/spots.csv";
     }
+
+    const char* apiKeyEnv = std::getenv("GOOGLE_PLACES_API_KEY");
+    googleApiKey_ = apiKeyEnv ? apiKeyEnv : "";
 }
 
 std::string ConfigService::findPath(const std::string& target, const std::string& fallback) {
@@ -89,5 +92,7 @@ std::string ConfigService::getOsrmPath() const { return osrmPath_; }
 std::string ConfigService::getSpotsCsvPath() const { return spotsCsvPath_; }
 
 double ConfigService::getSpotSearchRadius() const { return spotSearchRadius_; }
+
+std::string ConfigService::getGoogleApiKey() const { return googleApiKey_; }
 
 }  // namespace services
