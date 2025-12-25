@@ -76,11 +76,13 @@ add_executable(
   tests/OSRMIntegrationTest.cc
   tests/SpotServiceTest.cc
   tests/PolylineDecoderTest.cc
+  tests/RouteControllerTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
   utils/PolylineDecoder.cc
+  controllers/RouteController.cc
 )
 target_link_libraries(
   cycling_backend_test

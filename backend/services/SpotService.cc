@@ -3,6 +3,8 @@
 #include <drogon/HttpClient.h>
 #include <future>
 #include <iostream>
+#include <set>
+#include <thread>
 
 #include "../utils/PolylineDecoder.h"
 
@@ -16,86 +18,126 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
 
     std::string apiKey = configService_.getGoogleApiKey();
     if (apiKey.empty()) {
-        // APIキーがない場合は空リストを返す（ログ出力しても良い）
         std::cerr << "[WARN] Google API Key is not set. Skipping spot search." << std::endl;
         return {};
     }
 
+    // ルート全体をカバーするように、一定間隔でサンプリングした地点で検索を行う
     auto path = utils::PolylineDecoder::decode(polylineGeometry);
     if (path.empty()) return {};
 
-    // 簡易実装：ルートの中間地点を1箇所だけ検索対象とする
-    auto midPoint = path[path.size() / 2];
+    std::vector<Spot> allSpots;
+    std::set<std::string> seenNames;
 
-    std::cout << "[INFO] Searching spots around: " << midPoint.lat << ", " << midPoint.lon << std::endl;
+    // サンプリング間隔（例：全ポイントの25%ごと、最大5箇所程度）
+    size_t step = std::max(static_cast<size_t>(1), path.size() / 4);
+    std::vector<Coordinate> searchPoints;
+    for (size_t i = 0; i < path.size(); i += step) {
+        searchPoints.push_back(path[i]);
+    }
+    // 終点も追加
+    if (searchPoints.back().lat != path.back().lat || searchPoints.back().lon != path.back().lon) {
+        searchPoints.push_back(path.back());
+    }
 
-    // 非同期リクエストを同期的に待機するためのPromise
-    std::promise<std::vector<Spot>> promise;
-    auto future = promise.get_future();
-
-    auto client = drogon::HttpClient::newHttpClient("https://maps.googleapis.com");
-    auto req = drogon::HttpRequest::newHttpRequest();
-    req->setMethod(drogon::Get);
-    req->setPath("/maps/api/place/nearbysearch/json");
-    req->setParameter("location", std::to_string(midPoint.lat) + "," + std::to_string(midPoint.lon));
-    
-    // ConfigServiceから半径を取得（なければデフォルト）
     double radius = configService_.getSpotSearchRadius();
     if (radius <= 0) radius = 1000.0;
-    std::cout << "[INFO] Search radius: " << radius << " meters" << std::endl;
-    req->setParameter("radius", std::to_string(radius));
-    
-    req->setParameter("type", "restaurant|cafe|convenience_store|point_of_interest");
-    req->setParameter("key", apiKey);
-    req->setParameter("language", "ja");
 
-    client->sendRequest(req, [&promise](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-        std::vector<Spot> spots;
-        if (result == drogon::ReqResult::Ok && response->getStatusCode() == 200) {
-            auto jsonPtr = response->getJsonObject();
-            if (jsonPtr && jsonPtr->isMember("results") && (*jsonPtr)["results"].isArray()) {
-                const auto& results = (*jsonPtr)["results"];
-                std::cout << "[INFO] Found " << results.size() << " spots." << std::endl;
-                for (const auto& item : results) {
-                    Spot spot;
-                    spot.name = item.get("name", "").asString();
-                    if (item.isMember("geometry") && item["geometry"].isMember("location")) {
-                        spot.lat = item["geometry"]["location"].get("lat", 0.0).asDouble();
-                        spot.lon = item["geometry"]["location"].get("lng", 0.0).asDouble();
-                    }
-                    spot.rating = item.get("rating", 0.0).asDouble();
-                    
-                    if (item.isMember("types") && item["types"].isArray() && !item["types"].empty()) {
-                        spot.type = item["types"][0].asString();
+    int timeoutSec = configService_.getApiTimeoutSeconds();
+    if (timeoutSec <= 0) timeoutSec = 5;
+
+    int maxRetries = configService_.getApiRetryCount();
+    if (maxRetries < 0) maxRetries = 0;
+
+    std::string baseUrl = configService_.getGoogleMapsApiBaseUrl();
+    std::string apiPath = configService_.getGoogleMapsNearbySearchPath();
+
+    for (const auto& point : searchPoints) {
+        std::cout << "[INFO] Searching spots around: " << point.lat << ", " << point.lon << std::endl;
+
+        for (int attempt = 0; attempt <= maxRetries; ++attempt) {
+            if (attempt > 0) {
+                std::cout << "[INFO] Retrying spot search (attempt " << attempt << "/" << maxRetries
+                          << ")..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500 * attempt));
+            }
+
+            std::promise<std::pair<bool, std::vector<Spot>>> promise;
+            auto future = promise.get_future();
+
+            auto client = drogon::HttpClient::newHttpClient(baseUrl);
+            auto req = drogon::HttpRequest::newHttpRequest();
+            req->setMethod(drogon::Get);
+            req->setPath(apiPath);
+            req->setParameter("location", std::to_string(point.lat) + "," + std::to_string(point.lon));
+            req->setParameter("radius", std::to_string(radius));
+            req->setParameter("type", "restaurant|cafe|convenience_store|point_of_interest");
+            req->setParameter("key", apiKey);
+            req->setParameter("language", "ja");
+
+            client->sendRequest(
+                req, [&promise](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+                std::vector<Spot> spots;
+                bool success = false;
+
+                if (result == drogon::ReqResult::Ok && response->getStatusCode() == 200) {
+                    auto jsonPtr = response->getJsonObject();
+                    if (jsonPtr && jsonPtr->isMember("results") && (*jsonPtr)["results"].isArray()) {
+                        success = true;
+                        const auto& results = (*jsonPtr)["results"];
+                        for (const auto& item : results) {
+                            Spot spot;
+                            spot.name = item.get("name", "").asString();
+                            if (item.isMember("geometry") &&
+                                item["geometry"].isMember("location")) {
+                                spot.lat = item["geometry"]["location"].get("lat", 0.0).asDouble();
+                                spot.lon = item["geometry"]["location"].get("lng", 0.0).asDouble();
+                            }
+                            spot.rating = item.get("rating", 0.0).asDouble();
+
+                            if (item.isMember("types") && item["types"].isArray() &&
+                                !item["types"].empty()) {
+                                spot.type = item["types"][0].asString();
+                            } else {
+                                spot.type = "unknown";
+                            }
+
+                            spots.push_back(spot);
+                        }
+                    } else if (jsonPtr && jsonPtr->isMember("status") &&
+                               (*jsonPtr)["status"].asString() == "ZERO_RESULTS") {
+                        // 成功だが結果なし
+                        success = true;
                     } else {
-                        spot.type = "unknown";
+                        std::cerr << "[ERROR] Invalid response or API error." << std::endl;
+                        if (jsonPtr)
+                            std::cout << "[DEBUG] JSON: " << jsonPtr->toStyledString() << std::endl;
                     }
-                    
-                    spots.push_back(spot);
+                } else {
+                    std::cerr << "[ERROR] Request failed. Result: " << (int)result
+                              << ", Status: " << (response ? response->getStatusCode() : 0)
+                              << std::endl;
                 }
-            } else {
-                 std::cerr << "[ERROR] Invalid response from Google Places API or no results found." << std::endl;
-                 if (jsonPtr) {
-                     std::cout << "[DEBUG] Response JSON: " << jsonPtr->toStyledString() << std::endl;
-                 }
+                promise.set_value({success, spots});
+            });
+
+        if (future.wait_for(std::chrono::seconds(timeoutSec)) == std::future_status::ready) {
+            auto result = future.get();
+            if (result.first) {
+                for (const auto& spot : result.second) {
+                    if (seenNames.find(spot.name) == seenNames.end()) {
+                        allSpots.push_back(spot);
+                        seenNames.insert(spot.name);
+                    }
+                }
             }
         } else {
-            std::cerr << "[ERROR] Google Places API request failed. Result: " << (int)result 
-                      << ", Status: " << (response ? response->getStatusCode() : 0) << std::endl;
-            if (response) {
-                 std::cerr << "[ERROR] Response body: " << response->getBody() << std::endl;
-            }
+            std::cerr << "[WARN] Spot search timed out for point." << std::endl;
         }
-        promise.set_value(spots);
-    });
-
-    // タイムアウト設定 (5秒)
-    if (future.wait_for(std::chrono::seconds(5)) == std::future_status::ready) {
-        return future.get();
-    } else {
-        std::cerr << "[WARN] Spot search timed out" << std::endl;
-        return {};
     }
+
+    std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
+    return allSpots;
 }
 
 }  // namespace services

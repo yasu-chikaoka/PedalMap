@@ -45,6 +45,25 @@ ConfigService::ConfigService() {
 
     const char* apiKeyEnv = std::getenv("GOOGLE_PLACES_API_KEY");
     googleApiKey_ = apiKeyEnv ? apiKeyEnv : "";
+
+    const char* timeoutEnv = std::getenv("API_TIMEOUT_SECONDS");
+    apiTimeoutSeconds_ = timeoutEnv ? std::stoi(timeoutEnv) : 5;
+
+    const char* retryEnv = std::getenv("API_RETRY_COUNT");
+    apiRetryCount_ = retryEnv ? std::stoi(retryEnv) : 3;
+
+    const char* portEnv = std::getenv("SERVER_PORT");
+    serverPort_ = portEnv ? std::stoi(portEnv) : 8080;
+
+    const char* gmapBaseUrlEnv = std::getenv("GOOGLE_MAPS_API_BASE_URL");
+    googleMapsApiBaseUrl_ = gmapBaseUrlEnv ? gmapBaseUrlEnv : "https://maps.googleapis.com";
+
+    const char* gmapPathEnv = std::getenv("GOOGLE_MAPS_NEARBY_SEARCH_PATH");
+    googleMapsNearbySearchPath_ =
+        gmapPathEnv ? gmapPathEnv : "/maps/api/place/nearbysearch/json";
+
+    const char* originEnv = std::getenv("ALLOW_ORIGIN");
+    allowOrigin_ = originEnv ? originEnv : "*";
 }
 
 std::string ConfigService::findPath(const std::string& target, const std::string& fallback) {
@@ -94,5 +113,19 @@ std::string ConfigService::getSpotsCsvPath() const { return spotsCsvPath_; }
 double ConfigService::getSpotSearchRadius() const { return spotSearchRadius_; }
 
 std::string ConfigService::getGoogleApiKey() const { return googleApiKey_; }
+
+int ConfigService::getApiTimeoutSeconds() const { return apiTimeoutSeconds_; }
+
+int ConfigService::getApiRetryCount() const { return apiRetryCount_; }
+
+int ConfigService::getServerPort() const { return serverPort_; }
+
+std::string ConfigService::getGoogleMapsApiBaseUrl() const { return googleMapsApiBaseUrl_; }
+
+std::string ConfigService::getGoogleMapsNearbySearchPath() const {
+    return googleMapsNearbySearchPath_;
+}
+
+std::string ConfigService::getAllowOrigin() const { return allowOrigin_; }
 
 }  // namespace services

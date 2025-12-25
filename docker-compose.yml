@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: dev
     container_name: cycling-backend
     volumes:
       - ./backend:/app
@@ -18,15 +19,20 @@ services:
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: deps
     container_name: cycling-frontend
     volumes:
       - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     ports:
       - "3000:3000"
     working_dir: /app
     tty: true
-    command: /bin/sh
+    command: npm run dev
     environment:
       - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${GOOGLE_PLACES_API_KEY}
       - NEXT_PUBLIC_API_ENDPOINT=${NEXT_PUBLIC_API_ENDPOINT}

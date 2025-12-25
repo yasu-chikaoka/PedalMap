@@ -68,21 +68,22 @@ sudo docker compose up -d
 sudo docker compose exec backend bash -c "
   curl -L -o /data/kanto-latest.osm.pbf http://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf && \
   osrm-extract -p /usr/local/share/osrm/profiles/bicycle.lua /data/kanto-latest.osm.pbf && \
-  osrm-contract /data/kanto-latest.osrm
+  osrm-partition /data/kanto-latest.osrm && \
+  osrm-customize /data/kanto-latest.osrm
 "
 ```
 
 ### 4. アプリケーションの起動
 
-データ準備完了後、バックエンドサーバーを起動します。
+データ準備完了後、バックエンドサーバーをビルドして起動します。
 
 ```bash
-# バックエンドサーバーの起動
-sudo docker compose exec -d backend ./build/cycling_backend
-
-# フロントエンド開発サーバーの起動（既に起動している場合は不要）
-sudo docker compose exec -d frontend npm run dev
+# バックエンドのビルドと実行
+sudo docker compose exec backend bash -c "mkdir -p build && cd build && cmake .. && make -j$(nproc) && ./cycling_backend"
 ```
+
+フロントエンドは `docker compose up` 時に開発サーバーが自動的に起動します。
+ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスしてください。
 
 ### 5. アクセス
 

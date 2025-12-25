@@ -9,12 +9,14 @@ namespace services {
 
 namespace {
 
-// NOLINTNEXTLINE(readability-magic-numbers)
 constexpr double kEarthRadiusKm = 6371.0;
+constexpr double kDetourThresholdFactor = 1.2;
+constexpr double kMicroDegreeFactor = 1000000.0;
 
 double toRadians(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
 double toDegrees(double radians) { return radians * 180.0 / std::numbers::pi; }
+
 
 // ハーバーサイン公式
 double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
@@ -39,9 +41,6 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     }
 
     double straightDist = calculateDistanceKm(start, end);
-
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    const double kDetourThresholdFactor = 1.2;
 
     // 目標距離が直線距離の1.2倍未満なら迂回しない
     if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
@@ -139,8 +138,8 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
     std::cout << "[DEBUG] Route params coordinates: " << params.coordinates.size() << std::endl;
     for (const auto& c : params.coordinates) {
         // osrm::util::Coordinate stores FixedLatitude (int), convert to double by dividing by 1e6
-        double lat = static_cast<int>(c.lat) / 1000000.0;
-        double lon = static_cast<int>(c.lon) / 1000000.0;
+        double lat = static_cast<int>(c.lat) / kMicroDegreeFactor;
+        double lon = static_cast<int>(c.lon) / kMicroDegreeFactor;
         std::cout << "  (" << lat << ", " << lon << ")" << std::endl;
     }
 

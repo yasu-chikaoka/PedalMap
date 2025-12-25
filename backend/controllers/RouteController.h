@@ -34,9 +34,14 @@ class Route : public drogon::HttpController<Route> {
     // コンストラクタで依存サービスを初期化
     Route();
 
+    // 依存性注入のためのセッター
+    void setConfigService(std::shared_ptr<services::ConfigService> config) { configService_ = config; }
+    void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
+    void setSpotService(std::shared_ptr<services::SpotService> service) { spotService_ = service; }
+
    private:
-    services::ConfigService configService_;
-    services::OSRMClient osrmClient_;
-    services::SpotService spotService_;
+    std::shared_ptr<services::ConfigService> configService_;
+    std::shared_ptr<services::OSRMClient> osrmClient_;
+    std::shared_ptr<services::SpotService> spotService_;
 };
 }  // namespace api::v1

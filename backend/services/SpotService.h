@@ -29,10 +29,11 @@ struct Spot {
 class SpotService {
    public:
     explicit SpotService(const ConfigService& configService);
+    virtual ~SpotService() = default;
 
     // ルートの中間地点周辺のスポットをGoogle Places APIで検索（簡易実装のため同期ブロック）
-    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
-                                            double bufferMeters);
+    virtual std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
+                                                    double bufferMeters);
 
    private:
     const ConfigService& configService_;
