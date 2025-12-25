@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { MapPin, Navigation, Clock, Activity } from 'lucide-react';
-import { APIProvider, Map } from '@vis.gl/react-google-maps';
+import { useState, useCallback, useEffect } from 'react';
+import { MapPin, Navigation, Clock, Activity, Plus } from 'lucide-react';
+import { APIProvider, Map, Marker, InfoWindow } from '@vis.gl/react-google-maps';
 import { RoutePolyline } from '@/components/RoutePolyline';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { WaypointsList } from '@/components/WaypointsList';
 import type {
   RouteResponse,
   Waypoint,
+  Stop,
 } from '@/types';
 
 export default function Home() {
@@ -30,6 +31,45 @@ export default function Home() {
   const [routeData, setRouteData] = useState<RouteResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<Stop | null>(null);
+  const [mapCenter, setMapCenter] = useState({
+    lat: 35.170915,
+    lng: 136.881537,
+  });
+
+  // StartPointが変わったら地図の中心も移動
+  useEffect(() => {
+    setMapCenter(startPoint);
+  }, [startPoint]);
+
+  const handleSpotClick = useCallback((stop: Stop) => {
+    setSelectedSpot(stop);
+    setMapCenter({ lat: stop.location.lat, lng: stop.location.lon });
+  }, []);
+
+  const handleAddWaypoint = useCallback(
+    (stop: Stop) => {
+      const exists = waypoints.some(
+        (wp) =>
+          wp.location.lat === stop.location.lat &&
+          wp.location.lng === stop.location.lon,
+      );
+
+      if (exists) {
+        alert('このスポットは既に経由地に追加されています。');
+        return;
+      }
+
+      const newWaypoint: Waypoint = {
+        id: crypto.randomUUID(),
+        name: stop.name,
+        location: { lat: stop.location.lat, lng: stop.location.lon },
+      };
+      setWaypoints((prev) => [...prev, newWaypoint]);
+      setSelectedSpot(null);
+    },
+    [waypoints],
+  );
 
   // 現在地取得処理
   const getCurrentLocation = useCallback(() => {
@@ -354,7 +394,7 @@ export default function Home() {
               </div>
             </div>
 
-            {routeData.stops && routeData.stops.length > 0 && (
+            {routeData.stops && routeData.stops.length > 0 ? (
               <div className="mt-4 border-t border-green-200 pt-3">
                 <h4 className="font-semibold text-green-800 mb-2 text-sm flex items-center gap-1">
                   <MapPin size={14} /> おすすめ経由スポット
@@ -363,7 +403,8 @@ export default function Home() {
                   {routeData.stops.map((stop, i) => (
                     <li
                       key={i}
-                      className="bg-white p-2 rounded border border-gray-100 text-sm shadow-sm"
+                      className="bg-white p-2 rounded border border-gray-100 text-sm shadow-sm cursor-pointer hover:bg-blue-50 transition-colors"
+                      onClick={() => handleSpotClick(stop)}
                     >
                       <div className="font-bold text-gray-700">{stop.name}</div>
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -377,6 +418,15 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            ) : (
+              <div className="mt-4 border-t border-green-200 pt-3">
+                <h4 className="font-semibold text-green-800 mb-2 text-sm flex items-center gap-1">
+                  <MapPin size={14} /> おすすめ経由スポット
+                </h4>
+                <p className="text-sm text-gray-500 italic">
+                  ルート周辺のスポットは見つかりませんでした。
+                </p>
               </div>
             )}
           </div>
@@ -396,13 +446,51 @@ export default function Home() {
           <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
             <Map
               className="w-full h-full"
-              defaultCenter={startPoint}
+              center={mapCenter}
               defaultZoom={13}
+              onCenterChanged={(ev) => setMapCenter(ev.detail.center)}
               gestureHandling={'greedy'}
               disableDefaultUI={true}
             >
               {routeData?.geometry && (
                 <RoutePolyline encodedGeometry={routeData.geometry} />
+              )}
+              {routeData?.stops?.map((stop, i) => (
+                <Marker
+                  key={i}
+                  position={{ lat: stop.location.lat, lng: stop.location.lon }}
+                  onClick={() => handleSpotClick(stop)}
+                />
+              ))}
+              {selectedSpot && (
+                <InfoWindow
+                  position={{
+                    lat: selectedSpot.location.lat,
+                    lng: selectedSpot.location.lon,
+                  }}
+                  onCloseClick={() => setSelectedSpot(null)}
+                >
+                  <div className="p-2 min-w-[150px]">
+                    <h3 className="font-bold text-sm mb-1 text-gray-800">
+                      {selectedSpot.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded capitalize">
+                        {selectedSpot.type}
+                      </span>
+                      <span className="text-orange-500 font-bold text-xs">
+                        ★ {selectedSpot.rating}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleAddWaypoint(selectedSpot)}
+                      className="w-full bg-blue-600 text-white text-xs px-2 py-1.5 rounded hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <Plus size={12} />
+                      経由地に追加
+                    </button>
+                  </div>
+                </InfoWindow>
               )}
             </Map>
           </div>
