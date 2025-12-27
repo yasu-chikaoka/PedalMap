@@ -29,20 +29,14 @@ struct Spot {
 class SpotService {
    public:
     explicit SpotService(const ConfigService& configService);
+    virtual ~SpotService() = default;
 
-    // ルート（ポリライン）沿いのスポットを検索
-    // polylineGeometry: エンコードされたポリライン文字列（未実装、現在は座標のパスを使用）
-    // 現時点では、ポイント周辺のバッファリングや単純なパスロジックで「ルート沿い」をシミュレートしています。
-    // 「ルート沿い」を適切にサポートするには、ポリラインをLineStringに変換し、buffer/distanceを使用する必要があります。
-    // ルートジオメトリ（ポリライン）沿いのスポットを検索
-    std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
-                                            double bufferMeters);
+    // ルートの中間地点周辺のスポットをGoogle Places APIで検索（簡易実装のため同期ブロック）
+    virtual std::vector<Spot> searchSpotsAlongRoute(const std::string& polylineGeometry,
+                                                    double bufferMeters);
 
    private:
-    std::vector<Spot> spots_;
-    bgi::rtree<Value, bgi::quadratic<16>> rtree_;
-
-    void loadSpotsFromCsv(const std::string& filePath);
+    const ConfigService& configService_;
 };
 
 }  // namespace services

@@ -27,10 +27,12 @@ FetchContent_MakeAvailable(googletest)
 option(BUILD_TESTS_ONLY "Build only tests without backend dependencies" OFF)
 
 find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
+find_package(Drogon REQUIRED)
 
-if(NOT BUILD_TESTS_ONLY)
-    find_package(Drogon REQUIRED)
-endif()
+# if(NOT BUILD_TESTS_ONLY)
+#     find_package(Drogon REQUIRED)
+# endif()
+
 
 # インクルードディレクトリ
 include_directories(
@@ -76,19 +78,23 @@ add_executable(
   tests/OSRMIntegrationTest.cc
   tests/SpotServiceTest.cc
   tests/PolylineDecoderTest.cc
+  tests/RouteControllerTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
   utils/PolylineDecoder.cc
+  controllers/RouteController.cc
 )
 target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
   osrm
+  Drogon::Drogon
   ${Boost_LIBRARIES}
   Boost::thread
   Boost::filesystem
+
   jsoncpp
   pthread
   z

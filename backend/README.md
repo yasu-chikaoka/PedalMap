@@ -105,13 +105,25 @@ docker run --rm -t -v "${PWD}/osrm-data:/data" "osrm/osrm-backend:${OSRM_VERSION
 
 ### 2. アプリケーションの起動
 
-プロジェクトのルートディレクトリで以下のコマンドを実行すると、バックエンドAPIと準備したデータを使うOSRMサーバーが起動します。
+プロジェクトのルートディレクトリで以下のコマンドを実行すると、開発用環境が起動します。
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-初回起動時はDockerイメージのビルドに時間がかかります。
+バックエンドコンテナに入り、ビルドと実行を行います。
+
+```bash
+# コンテナに入る
+docker compose exec backend bash
+
+# ビルドと実行
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+./cycling_backend
+```
+
 起動後、バックエンドAPIは `http://localhost:8080` でリクエストを受け付けます。
 
 ## APIエンドポイント (API Endpoints)
@@ -179,15 +191,20 @@ docker-compose up --build
 
 ## テスト (Testing)
 
-以下のコマンドでDockerコンテナに入り、`ctest`を実行することで単体・結合テストを実行できます。
+バックエンドコンテナ内で、以下のコマンドでテストを実行できます。
 
 ```bash
-# 1. バックエンドコンテナにアクセス
-docker compose exec backend bash
-
-# 2. ビルドディレクトリに移動してテストを実行
+# ビルドディレクトリでテストを実行
 cd build
-ctest
+ctest --output-on-failure
+```
+
+## 本番用イメージのビルド (Production Build)
+
+マルチステージビルドを使用して、本番用の軽量なイメージをビルドできます。
+
+```bash
+docker build --target runner -t cycling-backend:latest .
 ```
 
 ## コードスタイル (Coding Standards)

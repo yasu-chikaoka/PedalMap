@@ -1,6 +1,7 @@
 #include "RouteService.h"
 
 #include <cmath>
+#include <iostream>
 #include <numbers>
 #include <osrm/nearest_parameters.hpp>
 
@@ -8,8 +9,9 @@ namespace services {
 
 namespace {
 
-// NOLINTNEXTLINE(readability-magic-numbers)
 constexpr double kEarthRadiusKm = 6371.0;
+constexpr double kDetourThresholdFactor = 1.2;
+constexpr double kMicroDegreeFactor = 1000000.0;
 
 double toRadians(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
@@ -39,11 +41,11 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
 
     double straightDist = calculateDistanceKm(start, end);
 
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    const double kDetourThresholdFactor = 1.2;
-
     // 目標距離が直線距離の1.2倍未満なら迂回しない
     if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
+        std::cout << "[WARN] Target distance too short for detour. Straight: " << straightDist
+                  << ", Target: " << targetDistanceKm
+                  << ", Threshold: " << (straightDist * kDetourThresholdFactor) << std::endl;
         return std::nullopt;
     }
 
@@ -92,6 +94,9 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     double viaLat = midLat + (perpY * detourHeight) / kLatDegToKm;
     double viaLon = midLon + (perpX * detourHeight) / kLonDegToKm;
 
+    std::cout << "[DEBUG] Detour calculated. Mid(" << midLat << ", " << midLon << ") Height("
+              << detourHeight << ") Via(" << viaLat << ", " << viaLon << ")" << std::endl;
+
     return Coordinate{viaLat, viaLon};
 }
 
@@ -115,6 +120,10 @@ std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
 osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start,
                                                          const Coordinate& end,
                                                          const std::vector<Coordinate>& waypoints) {
+    // LOG_DEBUG << "Request: Start(" << start.lat << ", " << start.lon << ") End(" << end.lat << ",
+    // "
+    //           << end.lon << ")";
+
     osrm::RouteParameters params;
     params.coordinates.emplace_back(osrm::util::FloatLongitude{start.lon},
                                     osrm::util::FloatLatitude{start.lat});
@@ -124,6 +133,15 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
     }
     params.coordinates.emplace_back(osrm::util::FloatLongitude{end.lon},
                                     osrm::util::FloatLatitude{end.lat});
+
+    std::cout << "[DEBUG] Route params coordinates: " << params.coordinates.size() << std::endl;
+    for (const auto& c : params.coordinates) {
+        // osrm::util::Coordinate stores FixedLatitude (int), convert to double by dividing by 1e6
+        double lat = static_cast<int>(c.lat) / kMicroDegreeFactor;
+        double lon = static_cast<int>(c.lon) / kMicroDegreeFactor;
+        std::cout << "  (" << lat << ", " << lon << ")" << std::endl;
+    }
+
     params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
     params.overview = osrm::RouteParameters::OverviewType::Full;
     params.steps = true;  // パス座標を取得するため
@@ -144,6 +162,9 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
     res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
     res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
     res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
+
+    std::cout << "[DEBUG] OSRM Result - Distance: " << res.distance_m
+              << ", Duration: " << res.duration_s << ", Geometry: " << res.geometry << std::endl;
 
     if (route.values.contains("legs")) {
         const auto& legs = route.values.at("legs").get<osrm::json::Array>();

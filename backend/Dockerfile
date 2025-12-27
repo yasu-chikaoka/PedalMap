@@ -1,15 +1,8 @@
-FROM ubuntu:22.04
+# --- Build Stage ---
+FROM ubuntu:22.04 AS builder
 
-# 環境変数の設定 (非対話モード)
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 必要なパッケージのインストール
-# build-essential: コンパイラ等
-# cmake: ビルドツール
-# git: ソース取得用
-# libosrm-dev: OSRMライブラリ
-# libjsoncpp-dev, uuid-dev, zlib1g-dev, libssl-dev: Drogon依存
-# curl: ユーティリティ
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -31,12 +24,9 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     curl \
     pkg-config \
-    clang-format \
-    clang-tidy \
     && rm -rf /var/lib/apt/lists/*
 
-# OSRM Backend のインストール (Source Build)
-# v5.27.1 を使用
+# Install OSRM
 WORKDIR /tmp
 RUN git clone https://github.com/Project-OSRM/osrm-backend.git && \
     cd osrm-backend && \
@@ -45,13 +35,9 @@ RUN git clone https://github.com/Project-OSRM/osrm-backend.git && \
     cd build && \
     cmake .. -DENABLE_MASON=OFF && \
     make -j$(nproc) && \
-    make install && \
-    cd /tmp && \
-    rm -rf osrm-backend
+    make install
 
-# Drogon Framework のインストール
-# ソースからビルドして最新版を入れる（推奨）
-WORKDIR /tmp
+# Install Drogon
 RUN git clone https://github.com/drogonframework/drogon && \
     cd drogon && \
     git checkout v1.9.5 && \
@@ -60,15 +46,56 @@ RUN git clone https://github.com/drogonframework/drogon && \
     cd build && \
     cmake .. && \
     make -j$(nproc) && \
-    make install && \
-    cd /tmp && \
-    rm -rf drogon
+    make install
 
-# 作業ディレクトリの設定
+# --- Development Stage ---
+FROM builder AS dev
+
+RUN apt-get update && apt-get install -y \
+    clang-format \
+    clang-tidy \
+    gdb \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+CMD ["/bin/bash"]
+
+# --- Production Runner Stage ---
+FROM ubuntu:22.04 AS runner
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libboost-filesystem1.74.0 \
+    libboost-iostreams1.74.0 \
+    libboost-program-options1.74.0 \
+    libboost-thread1.74.0 \
+    libboost-system1.74.0 \
+    libboost-regex1.74.0 \
+    libboost-chrono1.74.0 \
+    libboost-date-time1.74.0 \
+    libboost-atomic1.74.0 \
+    libtbb12 \
+    liblua5.3-0 \
+    libxml2 \
+    libosmpbf-dev \
+    libprotobuf23 \
+    libjsoncpp25 \
+    uuid-runtime \
+    zlib1g \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# ソースコード等はボリュームマウントされる想定のため、ここでのCOPYは最小限または無し
-# 依存関係定義ファイル（CMakeLists.txt等）があれば先にCOPYして事前ビルドするなどの最適化が可能だが、
-# 今回は開発環境用としてシンプルに保つ。
+# Copy built libraries and binaries from builder
+COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/share/osrm /usr/local/share/osrm
 
-CMD ["/bin/bash"]
+# Update library cache
+RUN ldconfig
+
+EXPOSE 8080

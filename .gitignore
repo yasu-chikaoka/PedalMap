@@ -7,12 +7,14 @@ osrm-data/lib/
 # Backend Build
 backend/build/
 backend/uploads/
+backend/server.log
 
 # Frontend
 frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.env.local
+.env
 
 # System
 .DS_Store
@@ -20,3 +22,6 @@ Thumbs.db
 
 # Docker
 .docker/
+
+# Logs
+*.log
