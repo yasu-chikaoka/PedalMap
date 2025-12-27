@@ -3,6 +3,7 @@ FROM ubuntu:22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install dependencies in a single layer to reduce size
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -26,27 +27,31 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OSRM
+# Install OSRM (pinned version)
 WORKDIR /tmp
 RUN git clone https://github.com/Project-OSRM/osrm-backend.git && \
     cd osrm-backend && \
     git checkout v5.27.1 && \
     mkdir build && \
     cd build && \
-    cmake .. -DENABLE_MASON=OFF && \
+    cmake .. -DENABLE_MASON=OFF -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
-    make install
+    make install && \
+    cd /tmp && \
+    rm -rf /tmp/osrm-backend
 
-# Install Drogon
+# Install Drogon (pinned version)
 RUN git clone https://github.com/drogonframework/drogon && \
     cd drogon && \
     git checkout v1.9.5 && \
     git submodule update --init && \
     mkdir build && \
     cd build && \
-    cmake .. && \
+    cmake .. -DCMAKE_BUILD_TYPE=Release && \
     make -j$(nproc) && \
-    make install
+    make install && \
+    cd /tmp && \
+    rm -rf /tmp/drogon
 
 # --- Development Stage ---
 FROM builder AS dev
@@ -58,6 +63,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+# We don't COPY . /app here to allow for volume mounting in docker-compose
+# COPY . /app
+
 CMD ["/bin/bash"]
 
 # --- Production Runner Stage ---

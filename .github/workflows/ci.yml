@@ -45,7 +45,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CMake, GTest & Clang-Tidy
+      - name: Cache dependencies
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib
+            /usr/local/include
+            /usr/local/bin
+            /usr/local/share/osrm
+          key: ${{ runner.os }}-backend-deps-v1
+
+      - name: Install dependencies (apt)
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang-tidy \
@@ -55,17 +66,21 @@ jobs:
             protobuf-compiler pkg-config
 
       - name: Install OSRM Backend
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/Project-OSRM/osrm-backend.git
           cd osrm-backend
           git checkout v5.27.1
           mkdir build
           cd build
-          cmake .. -DENABLE_MASON=OFF
+          cmake .. -DENABLE_MASON=OFF -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           sudo make install
+          cd ../..
+          rm -rf osrm-backend
 
       - name: Install Drogon
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/drogonframework/drogon
           cd drogon
@@ -73,22 +88,17 @@ jobs:
           git submodule update --init
           mkdir build
           cd build
-          cmake ..
+          cmake .. -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc)
           sudo make install
+          cd ../..
+          rm -rf drogon
 
       - name: Configure CMake (Test Only)
         run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-      # 外部ライブラリでエラーになるのでキャンセル
-      # - name: Lint (Clang-Tidy)
-      #   run: |
-      #     # Run clang-tidy on source files
-      #     # Using find to get .cc files, avoiding build directory
-      #     find . -name "*.cc" -not -path "./build/*" | xargs clang-tidy -p build --quiet --config-file=../.clang-tidy
-
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j$(nproc)
 
       - name: Test
         run: |

@@ -43,9 +43,6 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
 
     // 目標距離が直線距離の1.2倍未満なら迂回しない
     if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
-        std::cout << "[WARN] Target distance too short for detour. Straight: " << straightDist
-                  << ", Target: " << targetDistanceKm
-                  << ", Threshold: " << (straightDist * kDetourThresholdFactor) << std::endl;
         return std::nullopt;
     }
 
@@ -54,12 +51,7 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     // NOLINTNEXTLINE(readability-magic-numbers)
     double midLon = (start.lon + end.lon) / 2.0;
 
-    // 直交ベクトル (dy, -dx) を正規化して、迂回距離分だけ伸ばす
-    // 不足分の半分を高さとする三角形をイメージ
-    // detourHeight = sqrt((target/2)^2 - (straight/2)^2)
-    // NOLINTNEXTLINE(readability-magic-numbers)
     double halfTarget = targetDistanceKm / 2.0;
-    // NOLINTNEXTLINE(readability-magic-numbers)
     double halfStraight = straightDist / 2.0;
     double detourHeight = std::sqrt(halfTarget * halfTarget - halfStraight * halfStraight);
 
@@ -67,35 +59,22 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
         return std::nullopt;
     }
 
-    // 局所的な平面近似での移動量を計算するための係数
-    // 緯度1度あたりの距離 (約111km)
-    // NOLINTNEXTLINE(readability-magic-numbers)
     const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
-    // 経度1度あたりの距離 (緯度によって変化)
     double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
 
-    // start -> end ベクトル (km単位)
-    // 簡易的に中心緯度での変換係数を使用
     double vecX = (end.lon - start.lon) * kLonDegToKm;
     double vecY = (end.lat - start.lat) * kLatDegToKm;
-    double vecLen =
-        std::sqrt(vecX * vecX + vecY * vecY);  // calculateDistanceKmとほぼ同じはずだが平面近似
+    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
 
     if (vecLen == 0) {
         return std::nullopt;
     }
 
-    // 単位法線ベクトル (-dy, dx)
-    // 元のコードは (-distY, distX) だったので (-y, x) -> 左回転
     double perpX = -vecY / vecLen;
     double perpY = vecX / vecLen;
 
-    // 緯度経度に戻す
     double viaLat = midLat + (perpY * detourHeight) / kLatDegToKm;
     double viaLon = midLon + (perpX * detourHeight) / kLonDegToKm;
-
-    std::cout << "[DEBUG] Detour calculated. Mid(" << midLat << ", " << midLon << ") Height("
-              << detourHeight << ") Via(" << viaLat << ", " << viaLon << ")" << std::endl;
 
     return Coordinate{viaLat, viaLon};
 }
@@ -109,12 +88,10 @@ std::vector<Coordinate> RouteService::calculateDetourPoints(const Coordinate& st
 
     double straightDist = calculateDistanceKm(start, end);
 
-    // 目標距離が直線距離の1.2倍未満なら迂回しない
     if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
         return {};
     }
 
-    // 局所的な平面近似での移動量を計算するための係数
     double midLat = (start.lat + end.lat) / 2.0;
     double midLon = (start.lon + end.lon) / 2.0;
     const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
@@ -128,13 +105,10 @@ std::vector<Coordinate> RouteService::calculateDetourPoints(const Coordinate& st
         return {};
     }
 
-    // 単位法線ベクトル (-dy, dx)
     double perpX = -vecY / vecLen;
     double perpY = vecX / vecLen;
 
     std::vector<Coordinate> candidates;
-    // 複数の高さを試す (目標距離の 80%, 100%, 120% に相当する高さを適当にサンプリング)
-    // また、左右両方に振る
     std::vector<double> heightFactors = {0.8, 1.0, 1.2};
     std::vector<double> sideFactors = {-1.0, 1.0};
 
@@ -154,6 +128,46 @@ std::vector<Coordinate> RouteService::calculateDetourPoints(const Coordinate& st
     }
 
     return candidates;
+}
+
+std::vector<Coordinate> RouteService::calculatePolygonDetourPoints(const Coordinate& start,
+                                                                   const Coordinate& end,
+                                                                   double targetDistanceKm) {
+    if (targetDistanceKm <= 0) return {};
+
+    double straightDist = calculateDistanceKm(start, end);
+    if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
+        return {};
+    }
+
+    double midLat = (start.lat + end.lat) / 2.0;
+    const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
+    double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
+
+    double vecX = (end.lon - start.lon) * kLonDegToKm;
+    double vecY = (end.lat - start.lat) * kLatDegToKm;
+    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
+
+    if (vecLen == 0) return {};
+
+    double perpX = -vecY / vecLen;
+    double perpY = vecX / vecLen;
+
+    double surplus = targetDistanceKm - straightDist;
+    double offsetHeight = surplus * 0.4;
+
+    std::vector<Coordinate> result;
+    // P1: 1/3 point + offset
+    double p1Lat = start.lat + (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
+    double p1Lon = start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+    result.push_back({p1Lat, p1Lon});
+
+    // P2: 2/3 point + offset
+    double p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
+    double p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+    result.push_back({p2Lat, p2Lon});
+
+    return result;
 }
 
 std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
@@ -176,10 +190,6 @@ std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
 osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start,
                                                          const Coordinate& end,
                                                          const std::vector<Coordinate>& waypoints) {
-    // LOG_DEBUG << "Request: Start(" << start.lat << ", " << start.lon << ") End(" << end.lat << ",
-    // "
-    //           << end.lon << ")";
-
     osrm::RouteParameters params;
     params.coordinates.emplace_back(osrm::util::FloatLongitude{start.lon},
                                     osrm::util::FloatLatitude{start.lat});
@@ -190,17 +200,9 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
     params.coordinates.emplace_back(osrm::util::FloatLongitude{end.lon},
                                     osrm::util::FloatLatitude{end.lat});
 
-    std::cout << "[DEBUG] Route params coordinates: " << params.coordinates.size() << std::endl;
-    for (const auto& c : params.coordinates) {
-        // osrm::util::Coordinate stores FixedLatitude (int), convert to double by dividing by 1e6
-        double lat = static_cast<int>(c.lat) / kMicroDegreeFactor;
-        double lon = static_cast<int>(c.lon) / kMicroDegreeFactor;
-        std::cout << "  (" << lat << ", " << lon << ")" << std::endl;
-    }
-
     params.geometries = osrm::RouteParameters::GeometriesType::Polyline;
     params.overview = osrm::RouteParameters::OverviewType::Full;
-    params.steps = true;  // パス座標を取得するため
+    params.steps = true;
     return params;
 }
 
@@ -218,9 +220,6 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
     res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
     res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
     res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
-
-    std::cout << "[DEBUG] OSRM Result - Distance: " << res.distance_m
-              << ", Duration: " << res.duration_s << ", Geometry: " << res.geometry << std::endl;
 
     if (route.values.contains("legs")) {
         const auto& legs = route.values.at("legs").get<osrm::json::Array>();

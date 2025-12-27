@@ -32,6 +32,10 @@ class RouteService {
                                                          const Coordinate& end,
                                                          double targetDistanceKm);
 
+    static std::vector<Coordinate> calculatePolygonDetourPoints(const Coordinate& start,
+                                                                const Coordinate& end,
+                                                                double targetDistanceKm);
+
     static std::vector<Coordinate> parseWaypoints(const Json::Value& json);
 
     static osrm::RouteParameters buildRouteParameters(const Coordinate& start,

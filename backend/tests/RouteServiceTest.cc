@@ -96,6 +96,41 @@ TEST(RouteServiceTest, CalculateDetourPoints_DetourNeeded) {
     }
 }
 
+TEST(RouteServiceTest, CalculatePolygonDetourPoints_DetourNeeded) {
+    Coordinate start{35.0, 139.0};
+    Coordinate end{35.0, 139.1};
+    double targetKm = 20.0;
+
+    auto waypoints = RouteService::calculatePolygonDetourPoints(start, end, targetKm);
+    EXPECT_EQ(waypoints.size(), 2);
+
+    for (const auto& c : waypoints) {
+        EXPECT_GT(c.lat, 34.0);
+        EXPECT_LT(c.lat, 36.0);
+        EXPECT_GT(c.lon, 138.0);
+        EXPECT_LT(c.lon, 140.0);
+    }
+}
+
+TEST(RouteServiceTest, CalculatePolygonDetourPoints_DetourNeeded) {
+    Coordinate start{35.0, 139.0};
+    Coordinate end{35.0, 139.1};
+    double targetKm = 20.0;
+
+    auto candidateSets = RouteService::calculatePolygonDetourPoints(start, end, targetKm);
+    EXPECT_EQ(candidateSets.size(), 2); // 左右2パターン
+
+    for (const auto& set : candidateSets) {
+        EXPECT_EQ(set.size(), 2); // 経由地は2点
+        for (const auto& c : set) {
+            EXPECT_GT(c.lat, 34.0);
+            EXPECT_LT(c.lat, 36.0);
+            EXPECT_GT(c.lon, 138.0);
+            EXPECT_LT(c.lon, 140.0);
+        }
+    }
+}
+
 TEST(RouteServiceTest, CalculateDetourPoint_HighLatitude) {
     // 高緯度地域 (北緯60度)
     // 経度1度あたりの距離は赤道の半分程度になるはず (cos(60) = 0.5)

@@ -61,10 +61,24 @@ void Route::generate(const HttpRequestPtr &req,
     double minDistanceDiff = std::numeric_limits<double>::max();
 
     if (waypoints.empty() && targetDistanceKm > 0) {
-        auto detourCandidates =
+        // 1点迂回候補
+        auto singleDetourCandidates =
             services::RouteService::calculateDetourPoints(start, end, targetDistanceKm);
+        
+        // 多角形（2点）迂回候補
+        auto polygonDetourCandidateSets =
+            services::RouteService::calculatePolygonDetourPoints(start, end, targetDistanceKm);
 
-        if (detourCandidates.empty()) {
+        // すべての候補をフラットなリストに変換
+        std::vector<std::vector<services::Coordinate>> allCandidateSets;
+        for (const auto &c : singleDetourCandidates) {
+            allCandidateSets.push_back({c});
+        }
+        for (const auto &cs : polygonDetourCandidateSets) {
+            allCandidateSets.push_back(cs);
+        }
+
+        if (allCandidateSets.empty()) {
             // 迂回不要または計算不可の場合、直通ルートを試行
             osrm::RouteParameters params =
                 services::RouteService::buildRouteParameters(start, end, {});
@@ -73,10 +87,9 @@ void Route::generate(const HttpRequestPtr &req,
                 bestRoute = services::RouteService::processRoute(osrmResult);
             }
         } else {
-            for (const auto &candidate : detourCandidates) {
-                std::vector<services::Coordinate> currentWaypoints = {candidate};
+            for (const auto &candidateWaypoints : allCandidateSets) {
                 osrm::RouteParameters params =
-                    services::RouteService::buildRouteParameters(start, end, currentWaypoints);
+                    services::RouteService::buildRouteParameters(start, end, candidateWaypoints);
                 osrm::json::Object osrmResult;
 
                 if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
