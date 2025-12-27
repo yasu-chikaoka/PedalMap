@@ -19,14 +19,29 @@ protected:
 
     std::vector<Spot> loadSpots(const std::string& filename) {
         std::vector<Spot> spots;
-        std::ifstream file(filename);
-        if (!file.is_open()) {
-            // Try different path context for CI
-            file.open("../" + filename);
-            if (!file.is_open()) {
-                file.open("tests/data/spots_test.csv");
+        // Search in possible locations
+        std::vector<std::string> search_paths = {
+            filename,
+            "../" + filename,
+            "backend/" + filename,
+            "/home/user/workspase/cycling/" + filename,
+            "tests/data/spots_test.csv"
+        };
+        
+        std::ifstream file;
+        for (const auto& path : search_paths) {
+            file.open(path);
+            if (file.is_open()) {
+                std::cout << "[DEBUG] Found spots file at: " << path << std::endl;
+                break;
             }
         }
+
+        if (!file.is_open()) {
+            std::cerr << "[ERROR] Could not find spots file." << std::endl;
+            return spots;
+        }
+
         std::string line;
         while (std::getline(file, line)) {
             std::stringstream ss(line);
