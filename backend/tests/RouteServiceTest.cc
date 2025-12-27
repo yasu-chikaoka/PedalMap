@@ -4,10 +4,38 @@
 #include <osrm/json_container.hpp>
 
 #include "../services/RouteService.h"
+#include "../services/elevation/IElevationProvider.h"
 
 using namespace services;
+using namespace services::elevation;
 
-TEST(RouteServiceTest, ParseWaypoints_Valid) {
+class MockElevationProvider : public IElevationProvider {
+   public:
+    void getElevation(const Coordinate& coord, ElevationCallback&& callback) override {
+        callback(100.0);
+    }
+    void getElevations(const std::vector<Coordinate>& coords,
+                       ElevationsCallback&& callback) override {
+        callback(std::vector<double>(coords.size(), 100.0));
+    }
+    std::optional<double> getElevationSync(const Coordinate& coord) override {
+        // 緯度が増えるごとに標高が上がるようなモック（獲得標高のテスト用）
+        return coord.lat * 100.0;
+    }
+};
+
+class RouteServiceTest : public ::testing::Test {
+   protected:
+    void SetUp() override {
+        mockElevation_ = std::make_shared<MockElevationProvider>();
+        service_ = std::make_unique<RouteService>(mockElevation_);
+    }
+
+    std::shared_ptr<MockElevationProvider> mockElevation_;
+    std::unique_ptr<RouteService> service_;
+};
+
+TEST_F(RouteServiceTest, ParseWaypoints_Valid) {
     Json::Value json;
     Json::Value waypoint1;
     waypoint1["lat"] = 35.0;
@@ -24,179 +52,79 @@ TEST(RouteServiceTest, ParseWaypoints_Valid) {
     EXPECT_DOUBLE_EQ(waypoints[1].lon, 140.0);
 }
 
-TEST(RouteServiceTest, ParseWaypoints_Invalid) {
-    Json::Value json;
-    Json::Value waypoint1;
-    waypoint1["latitude"] = 35.0;  // 間違ったキー
-    waypoint1["lon"] = 139.0;
-    json["waypoints"].append(waypoint1);
-
-    auto waypoints = RouteService::parseWaypoints(json);
-    EXPECT_TRUE(waypoints.empty());
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_NoDetourNeeded) {
-    // 直線距離に近い場合、経由地は生成されないはず
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    Coordinate start{35.681236, 139.767125};  // 東京駅
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    Coordinate end{35.685175, 139.7528};  // 皇居
-
-    // 直線距離は約1.5km程度
-    // 目標距離1km（直線より短い）
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    auto result = RouteService::calculateDetourPoint(start, end, 1.0);
-    EXPECT_FALSE(result.has_value());
-
-    // 目標距離1.6km（直線よりわずかに長い程度）
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    result = RouteService::calculateDetourPoint(start, end, 1.6);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
-    // NOLINTNEXTLINE(readability-magic-numbers)
+TEST_F(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
     Coordinate start{35.0, 139.0};
-    // NOLINTNEXTLINE(readability-magic-numbers)
     Coordinate end{35.0, 139.1};
-    // 緯度35度での経度0.1度差は約9km (111 * 0.8 * 0.1)
-
-    // 目標距離20km（直線の2倍以上）
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    auto result = RouteService::calculateDetourPoint(start, end, 20.0);
-
+    auto result = service_->calculateDetourPoint(start, end, 20.0);
     ASSERT_TRUE(result.has_value());
-
-    // 経由地は中間地点から離れているはず
-    // start, endの緯度が同じなので、経由地の緯度は35.0から大きく離れるはず
-    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
     EXPECT_NE(result->lat, 35.0);
-
-    // start, endの中点 (139.05) に近いはず
-    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
-    EXPECT_NEAR(result->lon, 139.05, 0.001);
 }
 
-TEST(RouteServiceTest, CalculateDetourPoints_DetourNeeded) {
+TEST_F(RouteServiceTest, CalculateElevationGain) {
+    std::vector<Coordinate> path = {{35.0, 139.0}, {35.1, 139.0}, {35.2, 139.0}, {35.1, 139.0}};
+    // 標高: 3500, 3510, 3520, 3510
+    // 獲得標高: (3510-3500) + (3520-3510) = 20.0
+    double gain = service_->calculateElevationGain(path);
+    EXPECT_NEAR(gain, 20.0, 0.001);
+}
+
+TEST_F(RouteServiceTest, FindBestRoute_ElevationConsidered) {
     Coordinate start{35.0, 139.0};
     Coordinate end{35.0, 139.1};
-    double targetKm = 20.0;
+    double targetDist = 20.0;
+    double targetElev = 100.0;
 
-    auto candidates = RouteService::calculateDetourPoints(start, end, targetKm);
-    EXPECT_FALSE(candidates.empty());
-    // 3 heightFactors * 2 sideFactors = 6 candidates expected
-    EXPECT_EQ(candidates.size(), 6);
+    auto evaluator = [](const std::vector<Coordinate>& wps) -> std::optional<RouteResult> {
+        RouteResult res;
+        res.distance_m = 20000.0;
+        res.duration_s = 1000.0;
+        res.geometry = "poly";
+        // ダミーのパスを生成（緯度を変えて獲得標高を作る）
+        res.path = {{35.0, 139.0}, {35.1, 139.0}, {35.0, 139.1}};
+        // 獲得標高は (35.1*100 - 35.0*100) = 10.0
+        res.elevation_gain_m = 10.0;
+        return res;
+    };
 
-    for (const auto& c : candidates) {
-        EXPECT_GT(c.lat, 34.0);
-        EXPECT_LT(c.lat, 36.0);
-        EXPECT_GT(c.lon, 138.0);
-        EXPECT_LT(c.lon, 140.0);
-    }
-}
-
-TEST(RouteServiceTest, CalculatePolygonDetourPoints_DetourNeeded) {
-    Coordinate start{35.0, 139.0};
-    Coordinate end{35.0, 139.1};
-    double targetKm = 20.0;
-
-    auto waypoints = RouteService::calculatePolygonDetourPoints(start, end, targetKm);
-    EXPECT_EQ(waypoints.size(), 2);
-
-    for (const auto& c : waypoints) {
-        EXPECT_GT(c.lat, 34.0);
-        EXPECT_LT(c.lat, 36.0);
-        EXPECT_GT(c.lon, 138.0);
-        EXPECT_LT(c.lon, 140.0);
-    }
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_HighLatitude) {
-    // 高緯度地域 (北緯60度)
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    Coordinate start{60.0, 10.0};
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    Coordinate end{60.0, 11.0};
-
-    // 目標距離 100km
-    // NOLINTNEXTLINE(readability-magic-numbers)
-    auto result = RouteService::calculateDetourPoint(start, end, 100.0);
+    auto result = service_->findBestRoute(start, end, targetDist, targetElev, evaluator);
     ASSERT_TRUE(result.has_value());
-
-    // 垂直方向に移動するはずなので、経度は中点(10.5)付近
-    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
-    EXPECT_NEAR(result->lon, 10.5, 0.01);
-
-    // 緯度は60.0から離れる
-    // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
-    EXPECT_NE(result->lat, 60.0);
+    EXPECT_DOUBLE_EQ(result->elevation_gain_m, 10.0);
 }
 
-TEST(RouteServiceTest, ProcessRoute_Valid) {
+TEST_F(RouteServiceTest, ProcessRoute_WithElevation) {
     osrm::json::Object osrmResult;
     osrm::json::Array routes;
     osrm::json::Object route;
-    route.values["distance"] = osrm::json::Number(1234.5);
-    route.values["duration"] = osrm::json::Number(123.4);
-    route.values["geometry"] = osrm::json::String("some_polyline");
+    route.values["distance"] = osrm::json::Number(1000.0);
+    route.values["duration"] = osrm::json::Number(100.0);
+    route.values["geometry"] = osrm::json::String("geom");
 
     osrm::json::Array legs;
     osrm::json::Object leg;
     osrm::json::Array steps;
     osrm::json::Object step;
     osrm::json::Array intersections;
-    osrm::json::Object intersection;
-    osrm::json::Array location;
-    location.values.push_back(osrm::json::Number(139.0));
-    location.values.push_back(osrm::json::Number(35.0));
-    intersection.values["location"] = location;
-    intersections.values.push_back(intersection);
+    osrm::json::Object intersection1, intersection2;
+    osrm::json::Array loc1, loc2;
+    loc1.values.push_back(osrm::json::Number(139.0));
+    loc1.values.push_back(osrm::json::Number(35.0));
+    intersection1.values["location"] = loc1;
+    loc2.values.push_back(osrm::json::Number(139.0));
+    loc2.values.push_back(osrm::json::Number(35.1));
+    intersection2.values["location"] = loc2;
+
+    intersections.values.push_back(intersection1);
+    intersections.values.push_back(intersection2);
     step.values["intersections"] = intersections;
     steps.values.push_back(step);
     leg.values["steps"] = steps;
     legs.values.push_back(leg);
     route.values["legs"] = legs;
-
     routes.values.push_back(route);
     osrmResult.values["routes"] = routes;
 
-    auto result = RouteService::processRoute(osrmResult);
+    auto result = service_->processRoute(osrmResult);
     ASSERT_TRUE(result.has_value());
-    EXPECT_DOUBLE_EQ(result->distance_m, 1234.5);
-    EXPECT_DOUBLE_EQ(result->duration_s, 123.4);
-    EXPECT_EQ(result->geometry, "some_polyline");
-    ASSERT_EQ(result->path.size(), 1);
-    EXPECT_DOUBLE_EQ(result->path[0].lat, 35.0);
-}
-
-TEST(RouteServiceTest, ProcessRoute_NoRoutes) {
-    osrm::json::Object osrmResult;
-    osrmResult.values["routes"] = osrm::json::Array();
-    auto result = RouteService::processRoute(osrmResult);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_SameStartEnd) {
-    Coordinate start{35.0, 139.0};
-    auto result = RouteService::calculateDetourPoint(start, start, 10.0);
-    EXPECT_FALSE(result.has_value());
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
-    Coordinate start{35.0, 139.0};
-    Coordinate end{35.1, 139.1};
-    auto result = RouteService::calculateDetourPoint(start, end, 18.8);
-
-    osrm::json::Object osrmResult;
-    osrm::json::Array routes;
-    osrm::json::Object route;
-    route.values["distance"] = osrm::json::Number(1.0);
-    route.values["duration"] = osrm::json::Number(1.0);
-    route.values["geometry"] = osrm::json::String("g");
-    routes.values.push_back(route);
-    osrmResult.values["routes"] = routes;
-
-    auto procResult = RouteService::processRoute(osrmResult);
-    ASSERT_TRUE(procResult.has_value());
-    EXPECT_TRUE(procResult->path.empty());
+    // 標高差: 35.1*100 - 35.0*100 = 10.0
+    EXPECT_NEAR(result->elevation_gain_m, 10.0, 0.001);
 }

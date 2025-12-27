@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Tokyo Station",
+    "lat": 35.681236,
+    "lon": 139.767125
+  },
+  {
+    "name": "Imperial Palace",
+    "lat": 35.685175,
+    "lon": 139.752799
+  },
+  {
+    "name": "Shinjuku Gyoen",
+    "lat": 35.685164,
+    "lon": 139.710052
+  },
+  {
+    "name": "Yoyogi Park",
+    "lat": 35.671736,
+    "lon": 139.694945
+  },
+  {
+    "name": "Tokyo Tower",
+    "lat": 35.658581,
+    "lon": 139.745433
+  },
+  {
+    "name": "Nagoya Station",
+    "lat": 35.170915,
+    "lon": 136.881537
+  }
+]

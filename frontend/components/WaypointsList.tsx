@@ -76,9 +76,6 @@ const SortableItem = ({
             onPlaceSelect={(place) => onPlaceSelect(id, place)}
             placeholder="経由地を入力"
             value={waypoint.name}
-            onChange={() => {
-              /* テキスト変更だけなら親の状態は更新しない（Autocomplete選択で更新） */
-            }}
           />
         ) : (
           <div className="flex gap-2">

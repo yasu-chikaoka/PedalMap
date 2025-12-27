@@ -1,0 +1,33 @@
+[
+  {
+    "description": "Invalid Latitude (Too high)",
+    "payload": {
+      "start_point": { "lat": 91.0, "lon": 139.76 },
+      "end_point": { "lat": 35.68, "lon": 139.75 }
+    }
+  },
+  {
+    "description": "Invalid Longitude (Too low)",
+    "payload": {
+      "start_point": { "lat": 35.68, "lon": -181.0 },
+      "end_point": { "lat": 35.68, "lon": 139.75 }
+    }
+  },
+  {
+    "description": "Missing end_point",
+    "payload": {
+      "start_point": { "lat": 35.68, "lon": 139.76 }
+    }
+  },
+  {
+    "description": "Empty payload",
+    "payload": {}
+  },
+  {
+    "description": "SQL Injection attempt",
+    "payload": {
+      "start_point": { "lat": "35.68'; DROP TABLE users; --", "lon": 139.76 },
+      "end_point": { "lat": 35.68, "lon": 139.75 }
+    }
+  }
+]

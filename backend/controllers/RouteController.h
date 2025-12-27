@@ -9,6 +9,7 @@
 
 #include "services/ConfigService.h"
 #include "services/OSRMClient.h"
+#include "services/RouteService.h"
 #include "services/SpotService.h"
 
 using namespace drogon;
@@ -40,10 +41,14 @@ class Route : public drogon::HttpController<Route> {
     }
     void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
     void setSpotService(std::shared_ptr<services::SpotService> service) { spotService_ = service; }
+    void setRouteService(std::shared_ptr<services::RouteService> service) {
+        routeService_ = service;
+    }
 
    private:
     std::shared_ptr<services::ConfigService> configService_;
     std::shared_ptr<services::OSRMClient> osrmClient_;
     std::shared_ptr<services::SpotService> spotService_;
+    std::shared_ptr<services::RouteService> routeService_;
 };
 }  // namespace api::v1

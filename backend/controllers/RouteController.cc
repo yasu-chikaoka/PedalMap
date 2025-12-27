@@ -9,14 +9,19 @@
 #include <osrm/status.hpp>
 #include <osrm/table_parameters.hpp>
 
-#include "services/RouteService.h"
+#include "services/elevation/GSIElevationProvider.h"
 
 namespace api::v1 {
 
 Route::Route()
     : configService_(std::make_shared<services::ConfigService>()),
       osrmClient_(std::make_shared<services::OSRMClient>(*configService_)),
-      spotService_(std::make_shared<services::SpotService>(*configService_)) {}
+      spotService_(std::make_shared<services::SpotService>(*configService_)) {
+    // 標高プロバイダーの初期化
+    auto elevationProvider = std::make_shared<services::elevation::GSIElevationProvider>();
+    // RouteServiceの初期化と依存注入
+    routeService_ = std::make_shared<services::RouteService>(elevationProvider);
+}
 
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
@@ -58,7 +63,6 @@ void Route::generate(const HttpRequestPtr &req,
     }
 
     std::optional<services::RouteResult> bestRoute;
-    double minDistanceDiff = std::numeric_limits<double>::max();
 
     if (waypoints.empty() && targetDistanceKm > 0) {
         auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
@@ -67,26 +71,26 @@ void Route::generate(const HttpRequestPtr &req,
                 services::RouteService::buildRouteParameters(start, end, candidateWaypoints);
             osrm::json::Object osrmResult;
             if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
-                return services::RouteService::processRoute(osrmResult);
+                return routeService_->processRoute(osrmResult);
             }
             return std::nullopt;
         };
 
         double targetElevationM = 0.0;
         if (jsonPtr->isMember("preferences") &&
-            (*jsonPtr)["preferences"].isMember("target_elevation_m")) {
-            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_m"].asDouble();
+            (*jsonPtr)["preferences"].isMember("target_elevation_gain_m")) {
+            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_gain_m"].asDouble();
         }
 
-        bestRoute = services::RouteService::findBestRoute(start, end, targetDistanceKm,
-                                                          targetElevationM, evaluator);
+        bestRoute =
+            routeService_->findBestRoute(start, end, targetDistanceKm, targetElevationM, evaluator);
     } else {
         // Waypointsが指定されている、またはターゲット距離がない場合
         osrm::RouteParameters params =
             services::RouteService::buildRouteParameters(start, end, waypoints);
         osrm::json::Object osrmResult;
         if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
-            bestRoute = services::RouteService::processRoute(osrmResult);
+            bestRoute = routeService_->processRoute(osrmResult);
         }
     }
 
@@ -99,10 +103,12 @@ void Route::generate(const HttpRequestPtr &req,
     }
 
     LOG_DEBUG << "Route geometry: " << bestRoute->geometry;
+    LOG_DEBUG << "Elevation Gain: " << bestRoute->elevation_gain_m << " m";
 
     Json::Value respJson;
     respJson["summary"]["total_distance_m"] = bestRoute->distance_m;
     respJson["summary"]["estimated_moving_time_s"] = bestRoute->duration_s;
+    respJson["summary"]["total_elevation_gain_m"] = bestRoute->elevation_gain_m;
     respJson["geometry"] = bestRoute->geometry;
 
     // ルート沿いのスポットを検索

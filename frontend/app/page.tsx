@@ -108,10 +108,8 @@ export default function Home() {
     APP_CONFIG.GOOGLE_MAPS.API_KEY &&
     APP_CONFIG.GOOGLE_MAPS.API_KEY !== 'YOUR_API_KEY_HERE';
 
-  return (
-    <div className="flex h-screen w-full flex-col md:flex-row">
-      <Toaster position="top-right" />
-
+  const content = (
+    <>
       <ControlPanel
         startPoint={startPoint}
         setStartPoint={setStartPoint}
@@ -137,60 +135,55 @@ export default function Home() {
 
       <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
         {hasApiKey ? (
-          <APIProvider
-            apiKey={APP_CONFIG.GOOGLE_MAPS.API_KEY}
-            libraries={APP_CONFIG.GOOGLE_MAPS.LIBRARIES}
+          <Map
+            className="w-full h-full"
+            center={mapCenter}
+            defaultZoom={APP_CONFIG.GOOGLE_MAPS.DEFAULT_ZOOM}
+            onCenterChanged={(ev) => setMapCenter(ev.detail.center)}
+            gestureHandling={'greedy'}
+            disableDefaultUI={true}
           >
-            <Map
-              className="w-full h-full"
-              center={mapCenter}
-              defaultZoom={APP_CONFIG.GOOGLE_MAPS.DEFAULT_ZOOM}
-              onCenterChanged={(ev) => setMapCenter(ev.detail.center)}
-              gestureHandling={'greedy'}
-              disableDefaultUI={true}
-            >
-              {routeData?.geometry && (
-                <RoutePolyline encodedGeometry={routeData.geometry} />
-              )}
-              {routeData?.stops?.map((stop, i) => (
-                <Marker
-                  key={i}
-                  position={{ lat: stop.location.lat, lng: stop.location.lon }}
-                  onClick={() => handleSpotClick(stop)}
-                />
-              ))}
-              {selectedSpot && (
-                <InfoWindow
-                  position={{
-                    lat: selectedSpot.location.lat,
-                    lng: selectedSpot.location.lon,
-                  }}
-                  onCloseClick={() => setSelectedSpot(null)}
-                >
-                  <div className="p-2 min-w-[150px]">
-                    <h3 className="font-bold text-sm mb-1 text-gray-800">
-                      {selectedSpot.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded capitalize">
-                        {selectedSpot.type}
-                      </span>
-                      <span className="text-orange-500 font-bold text-xs">
-                        ★ {selectedSpot.rating}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleAddWaypoint(selectedSpot)}
-                      className="w-full bg-blue-600 text-white text-xs px-2 py-1.5 rounded hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors"
-                    >
-                      <Plus size={12} />
-                      {UI_TEXT.BUTTONS.ADD_WAYPOINT}
-                    </button>
+            {routeData?.geometry && (
+              <RoutePolyline encodedGeometry={routeData.geometry} />
+            )}
+            {routeData?.stops?.map((stop, i) => (
+              <Marker
+                key={i}
+                position={{ lat: stop.location.lat, lng: stop.location.lon }}
+                onClick={() => handleSpotClick(stop)}
+              />
+            ))}
+            {selectedSpot && (
+              <InfoWindow
+                position={{
+                  lat: selectedSpot.location.lat,
+                  lng: selectedSpot.location.lon,
+                }}
+                onCloseClick={() => setSelectedSpot(null)}
+              >
+                <div className="p-2 min-w-[150px]">
+                  <h3 className="font-bold text-sm mb-1 text-gray-800">
+                    {selectedSpot.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded capitalize">
+                      {selectedSpot.type}
+                    </span>
+                    <span className="text-orange-500 font-bold text-xs">
+                      ★ {selectedSpot.rating}
+                    </span>
                   </div>
-                </InfoWindow>
-              )}
-            </Map>
-          </APIProvider>
+                  <button
+                    onClick={() => handleAddWaypoint(selectedSpot)}
+                    className="w-full bg-blue-600 text-white text-xs px-2 py-1.5 rounded hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <Plus size={12} />
+                    {UI_TEXT.BUTTONS.ADD_WAYPOINT}
+                  </button>
+                </div>
+              </InfoWindow>
+            )}
+          </Map>
         ) : (
           <div className="text-center p-8">
             <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
@@ -206,6 +199,23 @@ export default function Home() {
           </div>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen w-full flex-col md:flex-row">
+      <Toaster position="top-right" />
+
+      {hasApiKey ? (
+        <APIProvider
+          apiKey={APP_CONFIG.GOOGLE_MAPS.API_KEY}
+          libraries={APP_CONFIG.GOOGLE_MAPS.LIBRARIES}
+        >
+          {content}
+        </APIProvider>
+      ) : (
+        content
+      )}
 
       <div className="absolute bottom-0 right-0 bg-white/80 px-2 py-1 text-[10px] text-gray-500 z-0 pointer-events-none">
         Map data © Google, Route data ©{' '}

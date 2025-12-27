@@ -53,6 +53,7 @@ if(NOT BUILD_TESTS_ONLY)
         services/OSRMClient.cc
         services/RouteService.cc
         services/SpotService.cc
+        services/elevation/GSIElevationProvider.cc
         utils/PolylineDecoder.cc
     )
 
@@ -80,10 +81,12 @@ add_executable(
   tests/PolylineDecoderTest.cc
   tests/RouteControllerTest.cc
   tests/RouteSimulationTest.cc
+  tests/GSIElevationProviderTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
+  services/elevation/GSIElevationProvider.cc
   utils/PolylineDecoder.cc
   controllers/RouteController.cc
 )
