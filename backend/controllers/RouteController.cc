@@ -73,7 +73,7 @@ void Route::generate(const HttpRequestPtr &req,
                 bestRoute = services::RouteService::processRoute(osrmResult);
             }
         } else {
-            for (const auto& candidate : detourCandidates) {
+            for (const auto &candidate : detourCandidates) {
                 std::vector<services::Coordinate> currentWaypoints = {candidate};
                 osrm::RouteParameters params =
                     services::RouteService::buildRouteParameters(start, end, currentWaypoints);
