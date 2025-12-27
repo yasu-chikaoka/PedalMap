@@ -79,6 +79,7 @@ add_executable(
   tests/SpotServiceTest.cc
   tests/PolylineDecoderTest.cc
   tests/RouteControllerTest.cc
+  tests/RouteSimulationTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc

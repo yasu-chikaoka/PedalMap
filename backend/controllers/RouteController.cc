@@ -57,19 +57,40 @@ void Route::generate(const HttpRequestPtr &req,
         LOG_DEBUG << "Target Distance: " << targetDistanceKm << " km";
     }
 
+    std::optional<services::RouteResult> bestRoute;
+    double minDistanceDiff = std::numeric_limits<double>::max();
+
     if (waypoints.empty() && targetDistanceKm > 0) {
-        if (auto viaPoint =
-                services::RouteService::calculateDetourPoint(start, end, targetDistanceKm)) {
-            LOG_DEBUG << "Calculated Detour Point: (" << viaPoint->lat << ", " << viaPoint->lon
-                      << ")";
-            waypoints.push_back(*viaPoint);
+        auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
+            -> std::optional<services::RouteResult> {
+            osrm::RouteParameters params =
+                services::RouteService::buildRouteParameters(start, end, candidateWaypoints);
+            osrm::json::Object osrmResult;
+            if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
+                return services::RouteService::processRoute(osrmResult);
+            }
+            return std::nullopt;
+        };
+
+        double targetElevationM = 0.0;
+        if (jsonPtr->isMember("preferences") &&
+            (*jsonPtr)["preferences"].isMember("target_elevation_m")) {
+            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_m"].asDouble();
+        }
+
+        bestRoute = services::RouteService::findBestRoute(start, end, targetDistanceKm,
+                                                          targetElevationM, evaluator);
+    } else {
+        // Waypointsが指定されている、またはターゲット距離がない場合
+        osrm::RouteParameters params =
+            services::RouteService::buildRouteParameters(start, end, waypoints);
+        osrm::json::Object osrmResult;
+        if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
+            bestRoute = services::RouteService::processRoute(osrmResult);
         }
     }
 
-    osrm::RouteParameters params =
-        services::RouteService::buildRouteParameters(start, end, waypoints);
-    osrm::json::Object osrmResult;
-    if (osrmClient_->Route(params, osrmResult) != osrm::Status::Ok) {
+    if (!bestRoute) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k400BadRequest);
         resp->setBody("Route calculation failed");
@@ -77,26 +98,17 @@ void Route::generate(const HttpRequestPtr &req,
         return;
     }
 
-    auto routeResult = services::RouteService::processRoute(osrmResult);
-    if (!routeResult) {
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setStatusCode(k500InternalServerError);
-        resp->setBody("Failed to process OSRM result");
-        callback(resp);
-        return;
-    }
-
-    LOG_DEBUG << "Route geometry: " << routeResult->geometry;
+    LOG_DEBUG << "Route geometry: " << bestRoute->geometry;
 
     Json::Value respJson;
-    respJson["summary"]["total_distance_m"] = routeResult->distance_m;
-    respJson["summary"]["estimated_moving_time_s"] = routeResult->duration_s;
-    respJson["geometry"] = routeResult->geometry;
+    respJson["summary"]["total_distance_m"] = bestRoute->distance_m;
+    respJson["summary"]["estimated_moving_time_s"] = bestRoute->duration_s;
+    respJson["geometry"] = bestRoute->geometry;
 
     // ルート沿いのスポットを検索
     double searchRadius = configService_->getSpotSearchRadius();
     // ポリラインジオメトリ検索を使用
-    auto spots = spotService_->searchSpotsAlongRoute(routeResult->geometry, searchRadius);
+    auto spots = spotService_->searchSpotsAlongRoute(bestRoute->geometry, searchRadius);
     for (const auto &spot : spots) {
         Json::Value stop;
         stop["name"] = spot.name;
