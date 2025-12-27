@@ -74,8 +74,8 @@ void Route::generate(const HttpRequestPtr &req,
 
         double targetElevationM = 0.0;
         if (jsonPtr->isMember("preferences") &&
-            (*jsonPtr)["preferences"].isMember("target_elevation_m")) {
-            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_m"].asDouble();
+            (*jsonPtr)["preferences"].isMember("target_elevation_gain_m")) {
+            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_gain_m"].asDouble();
         }
 
         bestRoute = services::RouteService::findBestRoute(start, end, targetDistanceKm,
