@@ -69,162 +69,173 @@ export const ControlPanel = ({
             <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <MapPin size={18} /> {UI_TEXT.TITLES.START_END}
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm text-gray-600">
+                  <label className="block text-sm font-medium text-gray-700">
                     {UI_TEXT.LABELS.START}
                   </label>
                   <button
                     onClick={onGetCurrentLocation}
-                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium transition-colors"
                     title="現在地を取得"
                   >
                     <Navigation size={12} /> {UI_TEXT.LABELS.CURRENT_LOCATION}
                   </button>
                 </div>
-                {hasApiKey ? (
-                  <PlaceAutocomplete
-                    onPlaceSelect={(place) => {
-                      if (place.geometry?.location) {
-                        setStartPoint({
-                          lat: place.geometry.location.lat(),
-                          lng: place.geometry.location.lng(),
-                        });
-                        if (place.name) setStartPlaceName(place.name);
-                      }
-                    }}
-                    placeholder={UI_TEXT.PLACEHOLDERS.START_SEARCH}
-                    value={startPlaceName}
-                    onChange={setStartPlaceName}
-                  />
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={startPoint.lat}
-                      onChange={(e) =>
-                        setStartPoint({
-                          ...startPoint,
-                          lat: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full p-2 border rounded text-sm"
-                      step="0.000001"
-                      placeholder="Lat"
+                <div className="relative group">
+                  {hasApiKey ? (
+                    <PlaceAutocomplete
+                      onPlaceSelect={(place) => {
+                        if (place.geometry?.location) {
+                          setStartPoint({
+                            lat: place.geometry.location.lat(),
+                            lng: place.geometry.location.lng(),
+                          });
+                          if (place.name) setStartPlaceName(place.name);
+                        }
+                      }}
+                      placeholder={UI_TEXT.PLACEHOLDERS.START_SEARCH}
+                      value={startPlaceName}
+                      onChange={setStartPlaceName}
                     />
-                    <input
-                      type="number"
-                      value={startPoint.lng}
-                      onChange={(e) =>
-                        setStartPoint({
-                          ...startPoint,
-                          lng: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full p-2 border rounded text-sm"
-                      step="0.000001"
-                      placeholder="Lng"
-                    />
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={startPoint.lat}
+                        onChange={(e) =>
+                          setStartPoint({
+                            ...startPoint,
+                            lat: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                        step="0.000001"
+                        placeholder="Lat"
+                      />
+                      <input
+                        type="number"
+                        value={startPoint.lng}
+                        onChange={(e) =>
+                          setStartPoint({
+                            ...startPoint,
+                            lng: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                        step="0.000001"
+                        placeholder="Lng"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <WaypointsList
-                waypoints={waypoints}
-                setWaypoints={setWaypoints}
-                apiKey={APP_CONFIG.GOOGLE_MAPS.API_KEY}
-              />
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 -z-10" />
+                <WaypointsList
+                  waypoints={waypoints}
+                  setWaypoints={setWaypoints}
+                  apiKey={APP_CONFIG.GOOGLE_MAPS.API_KEY}
+                />
+              </div>
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   {UI_TEXT.LABELS.END}
                 </label>
-                {hasApiKey ? (
-                  <PlaceAutocomplete
-                    onPlaceSelect={(place) => {
-                      if (place.geometry?.location) {
-                        setEndPoint({
-                          lat: place.geometry.location.lat(),
-                          lng: place.geometry.location.lng(),
-                        });
-                        if (place.name) setEndPlaceName(place.name);
-                      }
-                    }}
-                    placeholder={UI_TEXT.PLACEHOLDERS.END_SEARCH}
-                    value={endPlaceName}
-                    onChange={setEndPlaceName}
-                  />
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={endPoint.lat}
-                      onChange={(e) =>
-                        setEndPoint({
-                          ...endPoint,
-                          lat: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full p-2 border rounded text-sm"
-                      step="0.000001"
-                      placeholder="Lat"
+                <div className="relative group">
+                  {hasApiKey ? (
+                    <PlaceAutocomplete
+                      onPlaceSelect={(place) => {
+                        if (place.geometry?.location) {
+                          setEndPoint({
+                            lat: place.geometry.location.lat(),
+                            lng: place.geometry.location.lng(),
+                          });
+                          if (place.name) setEndPlaceName(place.name);
+                        }
+                      }}
+                      placeholder={UI_TEXT.PLACEHOLDERS.END_SEARCH}
+                      value={endPlaceName}
+                      onChange={setEndPlaceName}
                     />
-                    <input
-                      type="number"
-                      value={endPoint.lng}
-                      onChange={(e) =>
-                        setEndPoint({
-                          ...endPoint,
-                          lng: parseFloat(e.target.value),
-                        })
-                      }
-                      className="w-full p-2 border rounded text-sm"
-                      step="0.000001"
-                      placeholder="Lng"
-                    />
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={endPoint.lat}
+                        onChange={(e) =>
+                          setEndPoint({
+                            ...endPoint,
+                            lat: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                        step="0.000001"
+                        placeholder="Lat"
+                      />
+                      <input
+                        type="number"
+                        value={endPoint.lng}
+                        onChange={(e) =>
+                          setEndPoint({
+                            ...endPoint,
+                            lng: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                        step="0.000001"
+                        placeholder="Lng"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
-                <div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                <div className="space-y-1">
                   <label
                     htmlFor="target-distance"
-                    className="block text-xs text-gray-500 mb-1"
+                    className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"
                   >
-                    {UI_TEXT.LABELS.TARGET_DISTANCE}
+                    {UI_TEXT.LABELS.TARGET_DISTANCE} (km)
                   </label>
-                  <input
-                    id="target-distance"
-                    type="number"
-                    value={targetDistance}
-                    onChange={(e) =>
-                      setTargetDistance(parseFloat(e.target.value) || 0)
-                    }
-                    className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
-                    min={APP_CONFIG.ROUTES.MIN_DISTANCE_KM}
-                    max={APP_CONFIG.ROUTES.MAX_DISTANCE_KM}
-                  />
+                  <div className="relative">
+                    <input
+                      id="target-distance"
+                      type="number"
+                      value={targetDistance}
+                      onChange={(e) =>
+                        setTargetDistance(parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
+                      min={APP_CONFIG.ROUTES.MIN_DISTANCE_KM}
+                      max={APP_CONFIG.ROUTES.MAX_DISTANCE_KM}
+                    />
+                  </div>
                 </div>
-                <div>
+                <div className="space-y-1">
                   <label
                     htmlFor="target-elevation"
-                    className="block text-xs text-gray-500 mb-1"
+                    className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"
                   >
-                    {UI_TEXT.LABELS.TARGET_ELEVATION}
+                    {UI_TEXT.LABELS.TARGET_ELEVATION} (m)
                   </label>
-                  <input
-                    id="target-elevation"
-                    type="number"
-                    value={targetElevation}
-                    onChange={(e) =>
-                      setTargetElevation(parseFloat(e.target.value) || 0)
-                    }
-                    className="w-full p-2 border rounded text-sm bg-gray-50 focus:bg-white transition-colors"
-                    min={APP_CONFIG.ROUTES.MIN_ELEVATION_M}
-                    max={APP_CONFIG.ROUTES.MAX_ELEVATION_M}
-                  />
+                  <div className="relative">
+                    <input
+                      id="target-elevation"
+                      type="number"
+                      value={targetElevation}
+                      onChange={(e) =>
+                        setTargetElevation(parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
+                      min={APP_CONFIG.ROUTES.MIN_ELEVATION_M}
+                      max={APP_CONFIG.ROUTES.MAX_ELEVATION_M}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
