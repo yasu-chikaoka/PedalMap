@@ -27,10 +27,12 @@ FetchContent_MakeAvailable(googletest)
 option(BUILD_TESTS_ONLY "Build only tests without backend dependencies" OFF)
 
 find_package(Boost REQUIRED COMPONENTS filesystem iostreams thread system)
+find_package(Drogon REQUIRED)
 
-if(NOT BUILD_TESTS_ONLY)
-    find_package(Drogon REQUIRED)
-endif()
+# if(NOT BUILD_TESTS_ONLY)
+#     find_package(Drogon REQUIRED)
+# endif()
+
 
 # インクルードディレクトリ
 include_directories(

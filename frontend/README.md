@@ -7,12 +7,12 @@ Google Maps API を活用し、バックエンドから提供されるルート�
 
 ## 技術スタック (Technology Stack)
 
--   **フレームワーク**: Next.js (App Router)
--   **言語**: TypeScript
--   **スタイリング**: Tailwind CSS
--   **地図**: Google Maps JavaScript API (via @vis.gl/react-google-maps)
--   **アイコン**: Lucide React
--   **ドラッグ&ドロップ**: @dnd-kit
+- **フレームワーク**: Next.js (App Router)
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **地図**: Google Maps JavaScript API (via @vis.gl/react-google-maps)
+- **アイコン**: Lucide React
+- **ドラッグ&ドロップ**: @dnd-kit
 
 ## セットアップと実行方法 (Getting Started)
 

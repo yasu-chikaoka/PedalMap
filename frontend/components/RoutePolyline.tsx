@@ -19,13 +19,13 @@ export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
     }
 
     const path = geometryLibrary.encoding.decodePath(encodedGeometry);
-    
+
     // デバッグログ追加：デコードされたパスの座標を確認
-    console.log("Encoded Geometry:", encodedGeometry);
-    console.log("Decoded Path Length:", path.length);
+    console.log('Encoded Geometry:', encodedGeometry);
+    console.log('Decoded Path Length:', path.length);
     if (path.length > 0) {
-        console.log("Decoded Path First Point:", path[0].toJSON());
-        console.log("Decoded Path Last Point:", path[path.length-1].toJSON());
+      console.log('Decoded Path First Point:', path[0].toJSON());
+      console.log('Decoded Path Last Point:', path[path.length - 1].toJSON());
     }
 
     const newPolyline = new google.maps.Polyline({
@@ -42,13 +42,13 @@ export const RoutePolyline = ({ encodedGeometry }: RoutePolylineProps) => {
     // ルート全体が見えるようにズーム調整
     const bounds = new google.maps.LatLngBounds();
     path.forEach((point) => bounds.extend(point));
-    
+
     // 境界が有効か確認してからfitBoundsを実行
     if (!bounds.isEmpty()) {
-        console.log("Fitting bounds to:", bounds.toJSON());
-        map.fitBounds(bounds);
+      console.log('Fitting bounds to:', bounds.toJSON());
+      map.fitBounds(bounds);
     } else {
-        console.warn("Bounds are empty, skipping fitBounds");
+      console.warn('Bounds are empty, skipping fitBounds');
     }
 
     return () => {

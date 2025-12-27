@@ -130,14 +130,17 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                         seenNames.insert(spot.name);
                     }
                 }
+                break;  // Success, exit retry loop
             }
         } else {
             std::cerr << "[WARN] Spot search timed out for point." << std::endl;
         }
     }
+}
 
-    std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
-    return allSpots;
+std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
+return allSpots;
 }
 
 }  // namespace services
+

@@ -53,7 +53,8 @@ export const ControlPanel = ({
   onSpotClick,
 }: ControlPanelProps) => {
   const hasApiKey =
-    APP_CONFIG.GOOGLE_MAPS.API_KEY && APP_CONFIG.GOOGLE_MAPS.API_KEY !== 'YOUR_API_KEY_HERE';
+    APP_CONFIG.GOOGLE_MAPS.API_KEY &&
+    APP_CONFIG.GOOGLE_MAPS.API_KEY !== 'YOUR_API_KEY_HERE';
 
   return (
     <div className="w-full md:w-1/3 p-6 bg-white shadow-lg z-10 overflow-y-auto h-full">
@@ -136,7 +137,9 @@ export const ControlPanel = ({
               />
 
               <div>
-                <label className="block text-sm text-gray-600 mb-1">{UI_TEXT.LABELS.END}</label>
+                <label className="block text-sm text-gray-600 mb-1">
+                  {UI_TEXT.LABELS.END}
+                </label>
                 {hasApiKey ? (
                   <PlaceAutocomplete
                     onPlaceSelect={(place) => {
@@ -186,10 +189,14 @@ export const ControlPanel = ({
 
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
+                  <label
+                    htmlFor="target-distance"
+                    className="block text-xs text-gray-500 mb-1"
+                  >
                     {UI_TEXT.LABELS.TARGET_DISTANCE}
                   </label>
                   <input
+                    id="target-distance"
                     type="number"
                     value={targetDistance}
                     onChange={(e) =>
@@ -201,10 +208,14 @@ export const ControlPanel = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">
+                  <label
+                    htmlFor="target-elevation"
+                    className="block text-xs text-gray-500 mb-1"
+                  >
                     {UI_TEXT.LABELS.TARGET_ELEVATION}
                   </label>
                   <input
+                    id="target-elevation"
                     type="number"
                     value={targetElevation}
                     onChange={(e) =>

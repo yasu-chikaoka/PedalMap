@@ -26,12 +26,12 @@ export const RouteStats = ({ routeData, onSpotClick }: RouteStatsProps) => {
           </p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 uppercase">{UI_TEXT.LABELS.EST_TIME}</p>
+          <p className="text-xs text-gray-500 uppercase">
+            {UI_TEXT.LABELS.EST_TIME}
+          </p>
           <p className="text-xl font-mono font-bold text-gray-800 flex items-center gap-1">
             <Clock size={16} className="text-gray-400" />
-            {Math.floor(
-              routeData.summary.estimated_moving_time_s / 60,
-            )}{' '}
+            {Math.floor(routeData.summary.estimated_moving_time_s / 60)}{' '}
             <span className="text-sm font-normal">min</span>
           </p>
         </div>

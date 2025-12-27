@@ -80,9 +80,7 @@ export const useRoute = ({
       toast.success(UI_TEXT.TITLES.ROUTE_RESULT, { id: toastId });
     } catch (err) {
       const errorMessage =
-        err instanceof Error
-          ? err.message
-          : UI_TEXT.MESSAGES.UNEXPECTED_ERROR;
+        err instanceof Error ? err.message : UI_TEXT.MESSAGES.UNEXPECTED_ERROR;
       setError(errorMessage);
       toast.error(errorMessage, { id: toastId });
     } finally {

@@ -75,6 +75,7 @@ export const UI_TEXT = {
     UNEXPECTED_ERROR: '予期せぬエラーが発生しました',
     NO_SPOTS_FOUND: 'ルート周辺のスポットは見つかりませんでした。',
     API_KEY_MISSING: 'APIキーが設定されていません。',
-    API_KEY_INSTRUCTION: '.env.local に NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を設定すると地図と地名検索が有効になります。',
+    API_KEY_INSTRUCTION:
+      '.env.local に NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を設定すると地図と地名検索が有効になります。',
   },
 };
