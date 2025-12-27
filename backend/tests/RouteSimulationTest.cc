@@ -20,6 +20,13 @@ protected:
     std::vector<Spot> loadSpots(const std::string& filename) {
         std::vector<Spot> spots;
         std::ifstream file(filename);
+        if (!file.is_open()) {
+            // Try different path context for CI
+            file.open("../" + filename);
+            if (!file.is_open()) {
+                file.open("tests/data/spots_test.csv");
+            }
+        }
         std::string line;
         while (std::getline(file, line)) {
             std::stringstream ss(line);
