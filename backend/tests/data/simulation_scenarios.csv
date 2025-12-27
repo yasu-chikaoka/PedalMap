@@ -1,0 +1,6 @@
+id,start_name,start_lat,start_lon,end_name,end_lat,end_lon,target_dist_km,target_elev_m,type
+1,Tokyo Station,35.681236,139.767125,Tokyo Station,35.681236,139.767125,30,0,loop
+2,Takao Station,35.642056,139.282056,Takao Station,35.642056,139.282056,50,500,loop_mountain
+3,Shibuya,35.658034,139.701636,Yokohama,35.465981,139.622062,40,0,one_way
+4,Odawara,35.256250,139.155333,Hakone-Yumoto,35.231944,139.103889,30,300,mountain_short
+5,Imperial Palace,35.685175,139.752800,Imperial Palace,35.685175,139.752800,15,0,short_loop

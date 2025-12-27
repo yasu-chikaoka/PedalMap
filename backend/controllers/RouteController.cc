@@ -61,49 +61,25 @@ void Route::generate(const HttpRequestPtr &req,
     double minDistanceDiff = std::numeric_limits<double>::max();
 
     if (waypoints.empty() && targetDistanceKm > 0) {
-        // 1点迂回候補
-        auto singleDetourCandidates =
-            services::RouteService::calculateDetourPoints(start, end, targetDistanceKm);
-        
-        // 多角形（2点）迂回候補
-        auto polygonDetourWaypoints =
-            services::RouteService::calculatePolygonDetourPoints(start, end, targetDistanceKm);
-
-        // すべての候補をフラットなリストに変換
-        std::vector<std::vector<services::Coordinate>> allCandidateSets;
-        for (const auto &c : singleDetourCandidates) {
-            allCandidateSets.push_back({c});
-        }
-        if (!polygonDetourWaypoints.empty()) {
-            allCandidateSets.push_back(polygonDetourWaypoints);
-        }
-
-        if (allCandidateSets.empty()) {
-            // 迂回不要または計算不可の場合、直通ルートを試行
+        auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
+            -> std::optional<services::RouteResult> {
             osrm::RouteParameters params =
-                services::RouteService::buildRouteParameters(start, end, {});
+                services::RouteService::buildRouteParameters(start, end, candidateWaypoints);
             osrm::json::Object osrmResult;
             if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
-                bestRoute = services::RouteService::processRoute(osrmResult);
+                return services::RouteService::processRoute(osrmResult);
             }
-        } else {
-            for (const auto &candidateWaypoints : allCandidateSets) {
-                osrm::RouteParameters params =
-                    services::RouteService::buildRouteParameters(start, end, candidateWaypoints);
-                osrm::json::Object osrmResult;
+            return std::nullopt;
+        };
 
-                if (osrmClient_->Route(params, osrmResult) == osrm::Status::Ok) {
-                    auto route = services::RouteService::processRoute(osrmResult);
-                    if (route) {
-                        double diff = std::abs(route->distance_m / 1000.0 - targetDistanceKm);
-                        if (diff < minDistanceDiff) {
-                            minDistanceDiff = diff;
-                            bestRoute = route;
-                        }
-                    }
-                }
-            }
+        double targetElevationM = 0.0;
+        if (jsonPtr->isMember("preferences") &&
+            (*jsonPtr)["preferences"].isMember("target_elevation_m")) {
+            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_m"].asDouble();
         }
+
+        bestRoute = services::RouteService::findBestRoute(start, end, targetDistanceKm,
+                                                          targetElevationM, evaluator);
     } else {
         // Waypointsが指定されている、またはターゲット距離がない場合
         osrm::RouteParameters params =

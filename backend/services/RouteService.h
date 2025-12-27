@@ -2,6 +2,7 @@
 
 #include <json/json.h>
 
+#include <functional>
 #include <optional>
 #include <osrm/osrm.hpp>
 #include <osrm/route_parameters.hpp>
@@ -18,6 +19,7 @@ struct Coordinate {
 struct RouteResult {
     double distance_m;
     double duration_s;
+    double elevation_gain_m;
     std::string geometry;
     std::vector<Coordinate> path;
 };
@@ -37,6 +39,14 @@ class RouteService {
                                                                 double targetDistanceKm);
 
     static std::vector<Coordinate> parseWaypoints(const Json::Value& json);
+
+    using RouteEvaluator =
+        std::function<std::optional<RouteResult>(const std::vector<Coordinate>&)>;
+
+    static std::optional<RouteResult> findBestRoute(const Coordinate& start, const Coordinate& end,
+                                                    double targetDistanceKm,
+                                                    double targetElevationM,
+                                                    const RouteEvaluator& evaluator);
 
     static osrm::RouteParameters buildRouteParameters(const Coordinate& start,
                                                       const Coordinate& end,

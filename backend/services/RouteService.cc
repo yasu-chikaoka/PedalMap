@@ -163,11 +163,139 @@ std::vector<Coordinate> RouteService::calculatePolygonDetourPoints(const Coordin
     result.push_back({p1Lat, p1Lon});
 
     // P2: 2/3 point + offset
-    double p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
-    double p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+    double p2Lat =
+        start.lat + 2.0 * (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
+    double p2Lon =
+        start.lon + 2.0 * (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
     result.push_back({p2Lat, p2Lon});
 
     return result;
+}
+
+std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
+                                                       const Coordinate& end,
+                                                       double targetDistanceKm,
+                                                       double targetElevationM,
+                                                       const RouteEvaluator& evaluator) {
+    if (targetDistanceKm <= 0) return std::nullopt;
+
+    double straightDist = calculateDistanceKm(start, end);
+
+    // 候補生成のためのパラメータ
+    // 直線距離が短い場合は、より大きな係数で探索範囲を広げる
+    double baseExpansion = (straightDist > 0) ? (targetDistanceKm / straightDist) : 1.5;
+
+    // 複数の展開係数で候補を生成 (MCSSアプローチ)
+    std::vector<double> expansionFactors;
+    if (straightDist == 0) {  // 完全な周回
+        expansionFactors = {0.2, 0.3, 0.4, 0.5, 0.6};
+    } else {
+        // 現在の距離に対する目標距離の比率に基づく
+        double ratio = targetDistanceKm / straightDist;
+        if (ratio < 1.2) {
+            expansionFactors = {0.3, 0.5};  // わずかな迂回
+        } else {
+            // 目標距離に応じた「膨らみ」のバリエーション
+            expansionFactors = {0.8, 1.0, 1.2, 1.5};
+        }
+    }
+
+    // 左右(-1, 1)および拡張係数の組み合わせで候補点を生成
+    struct Candidate {
+        std::vector<Coordinate> waypoints;
+        std::string type;
+    };
+    std::vector<Candidate> candidates;
+
+    double midLat = (start.lat + end.lat) / 2.0;
+    double midLon = (start.lon + end.lon) / 2.0;
+    const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
+    double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
+
+    double vecX = (end.lon - start.lon) * kLonDegToKm;
+    double vecY = (end.lat - start.lat) * kLatDegToKm;
+    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
+
+    // ベクトルが0（完全な周回）の場合、適当な方向（北向きなど）を基準にする
+    double perpX, perpY;
+    if (vecLen == 0) {
+        perpX = 1.0;
+        perpY = 0.0;
+    } else {
+        perpX = -vecY / vecLen;
+        perpY = vecX / vecLen;
+    }
+
+    // 周回の場合、目標距離の円周を想定した半径
+    double loopRadiusKm = targetDistanceKm / (2 * std::numbers::pi);
+
+    for (double factor : expansionFactors) {
+        double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)  // 周回時の調整
+                                             : (targetDistanceKm - straightDist) * 0.5 * factor;
+
+        // 幾何学的計算による迂回点 (Single Point)
+        for (double side : {-1.0, 1.0}) {
+            double viaLat = midLat + (side * perpY * currentHeight) / kLatDegToKm;
+            double viaLon = midLon + (side * perpX * currentHeight) / kLonDegToKm;
+            candidates.push_back({{{viaLat, viaLon}}, "Single"});
+        }
+
+        // Polygon (2 points)
+        // targetDistanceKmに基づいて分割点を計算
+        if (vecLen > 0) {
+            double offsetHeight = currentHeight * 0.8;
+            double p1Lat =
+                start.lat + (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
+            double p1Lon =
+                start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+            double p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 +
+                           (perpY * offsetHeight) / kLatDegToKm;
+            double p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 +
+                           (perpX * offsetHeight) / kLonDegToKm;
+            candidates.push_back({{{p1Lat, p1Lon}, {p2Lat, p2Lon}}, "Polygon"});
+
+            // 反対側
+            p1Lat = start.lat + (end.lat - start.lat) / 3.0 - (perpY * offsetHeight) / kLatDegToKm;
+            p1Lon = start.lon + (end.lon - start.lon) / 3.0 - (perpX * offsetHeight) / kLonDegToKm;
+            p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 -
+                    (perpY * offsetHeight) / kLatDegToKm;
+            p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 -
+                    (perpX * offsetHeight) / kLonDegToKm;
+            candidates.push_back({{{p1Lat, p1Lon}, {p2Lat, p2Lon}}, "Polygon"});
+        }
+    }
+
+    std::optional<RouteResult> bestRoute = std::nullopt;
+    double minCost = std::numeric_limits<double>::max();
+
+    // 重み設定
+    const double kW_Distance = 1.0;
+    const double kW_Elevation = 2.0;  // 標高の優先度を高く設定
+
+    for (const auto& cand : candidates) {
+        auto result = evaluator(cand.waypoints);
+        if (result) {
+            double distDiff = std::abs(result->distance_m / 1000.0 - targetDistanceKm);
+            double elevDiff = 0.0;
+            if (targetElevationM > 0) {
+                // TODO: 標高データが取得できている場合のみ計算
+                // 現状は0が入っているため、機能しないが枠組みとして用意
+                elevDiff = std::abs(result->elevation_gain_m - targetElevationM);
+            }
+
+            // コスト関数: 距離誤差と標高誤差の加重和
+            // 正規化: 距離はkm単位、標高はm単位だが、1kmの重みと100mの重みをどう考えるか
+            // ここでは単純に値を重み付けする
+            double cost = kW_Distance * distDiff + kW_Elevation * (elevDiff / 100.0);
+
+            if (cost < minCost) {
+                minCost = cost;
+                bestRoute = result;
+            }
+        }
+    }
+
+    return bestRoute;
 }
 
 std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
@@ -219,6 +347,7 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
     RouteResult res;
     res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
     res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
+    res.elevation_gain_m = 0.0;
     res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
 
     if (route.values.contains("legs")) {
@@ -242,6 +371,17 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
                             }
                         }
                     }
+                }
+            }
+            // Annotation processing for elevation gain
+            if (leg.values.contains("annotation")) {
+                const auto& annotation = leg.values.at("annotation").get<osrm::json::Object>();
+                if (annotation.values.contains("datasources")) {
+                    const auto& datasources =
+                        annotation.values.at("datasources").get<osrm::json::Array>();
+                    // TODO: Implement elevation lookup from datasources or metadata if available
+                    // For now, we rely on external or simulation data as OSRM doesn't output
+                    // elevation by default without specific profile adjustments.
                 }
             }
         }

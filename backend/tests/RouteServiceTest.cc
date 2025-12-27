@@ -186,7 +186,7 @@ TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
     Coordinate start{35.0, 139.0};
     Coordinate end{35.1, 139.1};
     auto result = RouteService::calculateDetourPoint(start, end, 18.8);
-    
+
     osrm::json::Object osrmResult;
     osrm::json::Array routes;
     osrm::json::Object route;
