@@ -66,7 +66,7 @@ void Route::generate(const HttpRequestPtr &req,
             services::RouteService::calculateDetourPoints(start, end, targetDistanceKm);
         
         // 多角形（2点）迂回候補
-        auto polygonDetourCandidateSets =
+        auto polygonDetourWaypoints =
             services::RouteService::calculatePolygonDetourPoints(start, end, targetDistanceKm);
 
         // すべての候補をフラットなリストに変換
@@ -74,8 +74,8 @@ void Route::generate(const HttpRequestPtr &req,
         for (const auto &c : singleDetourCandidates) {
             allCandidateSets.push_back({c});
         }
-        for (const auto &cs : polygonDetourCandidateSets) {
-            allCandidateSets.push_back(cs);
+        if (!polygonDetourWaypoints.empty()) {
+            allCandidateSets.push_back(polygonDetourWaypoints);
         }
 
         if (allCandidateSets.empty()) {

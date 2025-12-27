@@ -72,8 +72,7 @@ TEST(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
     // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
     EXPECT_NE(result->lat, 35.0);
 
-    // start, endの中点 (139.05) に近いはず（垂直方向への移動なので経度は中点と同じになるはずだが、
-    // 簡易計算ロジックでは経度方向のベクトル成分が0になるため）
+    // start, endの中点 (139.05) に近いはず
     // NOLINTNEXTLINE(readability-magic-numbers,bugprone-unchecked-optional-access)
     EXPECT_NEAR(result->lon, 139.05, 0.001);
 }
@@ -112,36 +111,12 @@ TEST(RouteServiceTest, CalculatePolygonDetourPoints_DetourNeeded) {
     }
 }
 
-TEST(RouteServiceTest, CalculatePolygonDetourPoints_DetourNeeded) {
-    Coordinate start{35.0, 139.0};
-    Coordinate end{35.0, 139.1};
-    double targetKm = 20.0;
-
-    auto candidateSets = RouteService::calculatePolygonDetourPoints(start, end, targetKm);
-    EXPECT_EQ(candidateSets.size(), 2); // 左右2パターン
-
-    for (const auto& set : candidateSets) {
-        EXPECT_EQ(set.size(), 2); // 経由地は2点
-        for (const auto& c : set) {
-            EXPECT_GT(c.lat, 34.0);
-            EXPECT_LT(c.lat, 36.0);
-            EXPECT_GT(c.lon, 138.0);
-            EXPECT_LT(c.lon, 140.0);
-        }
-    }
-}
-
 TEST(RouteServiceTest, CalculateDetourPoint_HighLatitude) {
     // 高緯度地域 (北緯60度)
-    // 経度1度あたりの距離は赤道の半分程度になるはず (cos(60) = 0.5)
     // NOLINTNEXTLINE(readability-magic-numbers)
     Coordinate start{60.0, 10.0};
     // NOLINTNEXTLINE(readability-magic-numbers)
     Coordinate end{60.0, 11.0};
-
-    // 直線距離計算
-    // 緯度変化なし、経度1度差
-    // 距離 ≒ 111.32 * cos(60) * 1 ≒ 55.66km
 
     // 目標距離 100km
     // NOLINTNEXTLINE(readability-magic-numbers)
@@ -208,28 +183,10 @@ TEST(RouteServiceTest, CalculateDetourPoint_SameStartEnd) {
 }
 
 TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
-    // 目標距離が直線距離よりわずかに長い場合のテストケース。
-    // detourHeightが0以下になる可能性があります。
     Coordinate start{35.0, 139.0};
-    Coordinate end{35.1, 139.1};  // 約15.6km
-
-    // 目標距離を1.2倍のしきい値のすぐ上に設定しますが、計算の結果、迂回なしとなる可能性があります。
-    // 直線距離は約15.6km、しきい値は約18.72kmです。
-    // 有効だが境界に近いターゲットを設定します。
+    Coordinate end{35.1, 139.1};
     auto result = RouteService::calculateDetourPoint(start, end, 18.8);
-    // 精度によっては、ポイントが生成される場合とされない場合があります。
-    // 重要なのは `detourHeight <= 0` の分岐をカバーすることです。
-    // 正確な内部距離計算を知らずに直接テストするのは困難です。
-    // straightDist * 1.2 に非常に近い値であればトリガーされるはずです。
-    // わずかな detourHeight になるような距離を手動で計算してみましょう。
-    // straight = 10km とします。target は > 12km である必要があります。target = 12.000001 の場合、
-    // h = sqrt(6.0000005^2 - 5^2) であり、正の値になります。
-    // 既存の "NoDetourNeeded" テストはすでに target < straight * 1.2 をカバーしています。
-    // このテストは、そのしきい値を超えた直後のロジックも処理されることを保証します。
-    // 今のところ、既存のテストが主要なパスをカバーしており、特定の小さな分岐をターゲットにする必要があると仮定します。
-    // `calculateDetourPoint` 内の `vecLen == 0` のケースは `SameStartEnd` でもカバーされています。
-
-    // legs/stepsがない場合のprocessRouteのテストを追加しましょう。
+    
     osrm::json::Object osrmResult;
     osrm::json::Array routes;
     osrm::json::Object route;
@@ -242,31 +199,4 @@ TEST(RouteServiceTest, CalculateDetourPoint_SlightlyLongerDistance) {
     auto procResult = RouteService::processRoute(osrmResult);
     ASSERT_TRUE(procResult.has_value());
     EXPECT_TRUE(procResult->path.empty());
-}
-
-TEST(RouteServiceTest, CalculateDetourPoint_DetourHeightZero) {
-    // このテストケースは、`detourHeight` をゼロまたは負にするように特別に設計されています。
-    // これは、`halfTarget * halfTarget - halfStraight * halfStraight` が <= 0 の場合に発生します。
-    // これは、1.2倍のしきい値を超えていても、`targetDistance` が `straightDist`
-    // より小さいことを意味します。 シナリオを作成しましょう。
-    // 直線距離を10kmとします。しきい値は12kmです。
-    // calculateDistanceKmにいくつかの精度誤差があり、
-    // ターゲットが12.1の場合にstraightDistを12.2と計算すると仮定します。
-    // 分岐を直接テストするには：
-    // targetDistanceKm = 10, straightDist = 9 の場合。 `10 <= 9 * 1.2` (10.8) は true ->
-    // nulloptを返します。 `halfTarget^2` が `halfStraight^2`
-    // よりもわずかに小さい状況を作ってみましょう。 それはすでに `targetDistanceKm <= straightDist *
-    // kDetourThresholdFactor` でカバーされています。 `detourHeight`
-    // がゼロになる唯一の方法は、`targetDistanceKm` が正確に `straightDist`
-    // である場合ですが、これもカバーされています。 `target > straight` であれば、`< 0`
-    // の部分は数学的に不可能です。
-    // したがって、既存のテストですべての論理パスをカバーしているようです。
-    // 残りのカバーされていない行は、エラー条件や特定の浮動小数点の結果に関連している可能性があります。
-    // `detourHeight > 0` ブロック内の `vecLen == 0` をヒットさせてみましょう（これも不可能です）。
-
-    // `RouteService.cc` を再検討しましょう。カバーされていない部分は、`snapToRoad` や
-    // `processRoute` の例外/エラーパスであり、 トリガーするのが難しい可能性があります。
-    // 意味のある単体テストで残りの数行をヒットさせることの難しさと、
-    // コアロジックがカバーされていることを考慮すると、現在のカバレッジは十分であると見なします。
-    // 現在のテストはすべての主要な機能をカバーしています。
 }
