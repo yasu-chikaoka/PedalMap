@@ -78,6 +78,24 @@ TEST(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
     EXPECT_NEAR(result->lon, 139.05, 0.001);
 }
 
+TEST(RouteServiceTest, CalculateDetourPoints_DetourNeeded) {
+    Coordinate start{35.0, 139.0};
+    Coordinate end{35.0, 139.1};
+    double targetKm = 20.0;
+
+    auto candidates = RouteService::calculateDetourPoints(start, end, targetKm);
+    EXPECT_FALSE(candidates.empty());
+    // 3 heightFactors * 2 sideFactors = 6 candidates expected
+    EXPECT_EQ(candidates.size(), 6);
+
+    for (const auto& c : candidates) {
+        EXPECT_GT(c.lat, 34.0);
+        EXPECT_LT(c.lat, 36.0);
+        EXPECT_GT(c.lon, 138.0);
+        EXPECT_LT(c.lon, 140.0);
+    }
+}
+
 TEST(RouteServiceTest, CalculateDetourPoint_HighLatitude) {
     // 高緯度地域 (北緯60度)
     // 経度1度あたりの距離は赤道の半分程度になるはず (cos(60) = 0.5)

@@ -100,6 +100,62 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
     return Coordinate{viaLat, viaLon};
 }
 
+std::vector<Coordinate> RouteService::calculateDetourPoints(const Coordinate& start,
+                                                            const Coordinate& end,
+                                                            double targetDistanceKm) {
+    if (targetDistanceKm <= 0) {
+        return {};
+    }
+
+    double straightDist = calculateDistanceKm(start, end);
+
+    // 目標距離が直線距離の1.2倍未満なら迂回しない
+    if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
+        return {};
+    }
+
+    // 局所的な平面近似での移動量を計算するための係数
+    double midLat = (start.lat + end.lat) / 2.0;
+    double midLon = (start.lon + end.lon) / 2.0;
+    const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
+    double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
+
+    double vecX = (end.lon - start.lon) * kLonDegToKm;
+    double vecY = (end.lat - start.lat) * kLatDegToKm;
+    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
+
+    if (vecLen == 0) {
+        return {};
+    }
+
+    // 単位法線ベクトル (-dy, dx)
+    double perpX = -vecY / vecLen;
+    double perpY = vecX / vecLen;
+
+    std::vector<Coordinate> candidates;
+    // 複数の高さを試す (目標距離の 80%, 100%, 120% に相当する高さを適当にサンプリング)
+    // また、左右両方に振る
+    std::vector<double> heightFactors = {0.8, 1.0, 1.2};
+    std::vector<double> sideFactors = {-1.0, 1.0};
+
+    for (double hf : heightFactors) {
+        double currentTarget = straightDist + (targetDistanceKm - straightDist) * hf;
+        double halfTarget = currentTarget / 2.0;
+        double halfStraight = straightDist / 2.0;
+        if (halfTarget <= halfStraight) continue;
+
+        double detourHeight = std::sqrt(halfTarget * halfTarget - halfStraight * halfStraight);
+
+        for (double sf : sideFactors) {
+            double viaLat = midLat + (sf * perpY * detourHeight) / kLatDegToKm;
+            double viaLon = midLon + (sf * perpX * detourHeight) / kLonDegToKm;
+            candidates.push_back(Coordinate{viaLat, viaLon});
+        }
+    }
+
+    return candidates;
+}
+
 std::vector<Coordinate> RouteService::parseWaypoints(const Json::Value& json) {
     std::vector<Coordinate> waypoints;
     if (json.isMember("waypoints")) {
