@@ -82,6 +82,8 @@ TEST_F(RouteSimulationTest, CompareAlgorithms) {
     auto spots = loadSpots("backend/tests/data/spots_test.csv");
     ASSERT_FALSE(spots.empty());
 
+    RouteService service(nullptr);  // No elevation provider for simulation
+
     std::cout << "\n--- Route Generation Algorithm Comparison ---" << std::endl;
     std::cout << std::left << std::setw(20) << "Start" << std::setw(20) << "End" << std::setw(15)
               << "Target(km)" << std::setw(15) << "Type" << std::setw(15) << "WPs" << std::endl;
@@ -96,7 +98,7 @@ TEST_F(RouteSimulationTest, CompareAlgorithms) {
             if (straightDist < 1.0) continue;
 
             // Single point
-            auto single = RouteService::calculateDetourPoint(start, end, targetDist);
+            auto single = service.calculateDetourPoint(start, end, targetDist);
             std::cout << std::left << std::setw(20) << spots[i].name.substr(0, 18) << std::setw(20)
                       << spots[j].name.substr(0, 18) << std::fixed << std::setprecision(2)
                       << std::setw(15) << targetDist << std::setw(15) << "Triangle" << std::setw(15)
@@ -123,7 +125,7 @@ TEST_F(RouteSimulationTest, CompareAlgorithms) {
                 return res;
             };
 
-            auto bestRoute = RouteService::findBestRoute(start, end, targetDist, 0, evaluator);
+            auto bestRoute = service.findBestRoute(start, end, targetDist, 0, evaluator);
 
             std::string resultStr = "N/A";
             double resultDist = 0.0;
