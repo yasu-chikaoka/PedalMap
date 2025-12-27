@@ -1,6 +1,7 @@
 #include "SpotService.h"
 
 #include <drogon/HttpClient.h>
+
 #include <future>
 #include <iostream>
 #include <set>
@@ -53,7 +54,8 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
     std::string apiPath = configService_.getGoogleMapsNearbySearchPath();
 
     for (const auto& point : searchPoints) {
-        std::cout << "[INFO] Searching spots around: " << point.lat << ", " << point.lon << std::endl;
+        std::cout << "[INFO] Searching spots around: " << point.lat << ", " << point.lon
+                  << std::endl;
 
         for (int attempt = 0; attempt <= maxRetries; ++attempt) {
             if (attempt > 0) {
@@ -69,20 +71,22 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
             auto req = drogon::HttpRequest::newHttpRequest();
             req->setMethod(drogon::Get);
             req->setPath(apiPath);
-            req->setParameter("location", std::to_string(point.lat) + "," + std::to_string(point.lon));
+            req->setParameter("location",
+                              std::to_string(point.lat) + "," + std::to_string(point.lon));
             req->setParameter("radius", std::to_string(radius));
             req->setParameter("type", "restaurant|cafe|convenience_store|point_of_interest");
             req->setParameter("key", apiKey);
             req->setParameter("language", "ja");
 
-            client->sendRequest(
-                req, [&promise](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+            client->sendRequest(req, [&promise](drogon::ReqResult result,
+                                                const drogon::HttpResponsePtr& response) {
                 std::vector<Spot> spots;
                 bool success = false;
 
                 if (result == drogon::ReqResult::Ok && response->getStatusCode() == 200) {
                     auto jsonPtr = response->getJsonObject();
-                    if (jsonPtr && jsonPtr->isMember("results") && (*jsonPtr)["results"].isArray()) {
+                    if (jsonPtr && jsonPtr->isMember("results") &&
+                        (*jsonPtr)["results"].isArray()) {
                         success = true;
                         const auto& results = (*jsonPtr)["results"];
                         for (const auto& item : results) {
@@ -121,26 +125,25 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                 promise.set_value({success, spots});
             });
 
-        if (future.wait_for(std::chrono::seconds(timeoutSec)) == std::future_status::ready) {
-            auto result = future.get();
-            if (result.first) {
-                for (const auto& spot : result.second) {
-                    if (seenNames.find(spot.name) == seenNames.end()) {
-                        allSpots.push_back(spot);
-                        seenNames.insert(spot.name);
+            if (future.wait_for(std::chrono::seconds(timeoutSec)) == std::future_status::ready) {
+                auto result = future.get();
+                if (result.first) {
+                    for (const auto& spot : result.second) {
+                        if (seenNames.find(spot.name) == seenNames.end()) {
+                            allSpots.push_back(spot);
+                            seenNames.insert(spot.name);
+                        }
                     }
+                    break;  // Success, exit retry loop
                 }
-                break;  // Success, exit retry loop
+            } else {
+                std::cerr << "[WARN] Spot search timed out for point." << std::endl;
             }
-        } else {
-            std::cerr << "[WARN] Spot search timed out for point." << std::endl;
         }
     }
-}
 
-std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
-return allSpots;
+    std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
+    return allSpots;
 }
 
 }  // namespace services
-

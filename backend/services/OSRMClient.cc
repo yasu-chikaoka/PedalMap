@@ -11,7 +11,7 @@ OSRMClient::OSRMClient(const ConfigService& configService) {
         config.storage_config = {configService.getOsrmPath()};
         config.use_shared_memory = false;
         config.algorithm = osrm::EngineConfig::Algorithm::CH;
-        
+
         // ファイルが存在しない場合に例外を投げずにエラーを出力するようにする
         // ただしosrm::OSRMのコンストラクタはファイルがないと例外を投げる仕様
         // そのため、try-catchで囲み、初期化に失敗してもプロセスが落ちないようにする

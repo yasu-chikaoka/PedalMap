@@ -17,7 +17,7 @@ std::vector<services::Coordinate> PolylineDecoder::decode(const std::string& enc
         int shift = 0;
         int result = 0;
         do {
-            if (index >= len) break; // Prevent buffer overrun
+            if (index >= len) break;  // Prevent buffer overrun
             b = encodedPolyline[index++] - 63;
             result |= (b & 0x1f) << shift;
             shift += 5;
@@ -28,7 +28,7 @@ std::vector<services::Coordinate> PolylineDecoder::decode(const std::string& enc
         shift = 0;
         result = 0;
         do {
-            if (index >= len) break; // Prevent buffer overrun
+            if (index >= len) break;  // Prevent buffer overrun
             b = encodedPolyline[index++] - 63;
             result |= (b & 0x1f) << shift;
             shift += 5;

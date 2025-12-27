@@ -6,7 +6,7 @@
 
 int main() {
     services::ConfigService config;
-    
+
     std::cout << "Starting Cycling Backend Server..." << std::endl;
 
     const int kPort = config.getServerPort();

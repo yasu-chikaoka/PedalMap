@@ -59,8 +59,7 @@ ConfigService::ConfigService() {
     googleMapsApiBaseUrl_ = gmapBaseUrlEnv ? gmapBaseUrlEnv : "https://maps.googleapis.com";
 
     const char* gmapPathEnv = std::getenv("GOOGLE_MAPS_NEARBY_SEARCH_PATH");
-    googleMapsNearbySearchPath_ =
-        gmapPathEnv ? gmapPathEnv : "/maps/api/place/nearbysearch/json";
+    googleMapsNearbySearchPath_ = gmapPathEnv ? gmapPathEnv : "/maps/api/place/nearbysearch/json";
 
     const char* originEnv = std::getenv("ALLOW_ORIGIN");
     allowOrigin_ = originEnv ? originEnv : "*";

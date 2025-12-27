@@ -25,7 +25,8 @@ class SpotServiceTest : public ::testing::Test {
     std::unique_ptr<SpotService> spotService;
 };
 
-// Google Maps APIへのモック実装が難しいため、実際のネットワーク呼び出しを行うテストはスキップします。
+// Google Maps
+// APIへのモック実装が難しいため、実際のネットワーク呼び出しを行うテストはスキップします。
 // 将来的には、HttpClientをモックできるようにリファクタリングしてテストを有効化すべきです。
 TEST_F(SpotServiceTest, DISABLED_SearchSpotsAlongPath_Simple) {
     // ...
