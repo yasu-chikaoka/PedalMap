@@ -15,17 +15,20 @@ std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, 
             [](const drogon::nosql::RedisResult& r) { return r; },
             "HGETALL %s", key.c_str());
             
-        if (result.type() == drogon::nosql::RedisResultType::kArray && result.size() > 0) {
-            ElevationCacheEntry entry;
-            for (size_t i = 0; i < result.size(); i += 2) {
-                std::string field = result[i].asString();
-                if (field == "content") {
-                    entry.content = result[i+1].asString();
-                } else if (field == "updated_at") {
-                    entry.updated_at = std::stoull(result[i+1].asString());
+        if (result.type() == drogon::nosql::RedisResultType::kArray) {
+            auto arr = result.asArray();
+            if (!arr.empty()) {
+                ElevationCacheEntry entry;
+                for (size_t i = 0; i < arr.size(); i += 2) {
+                    std::string field = arr[i].asString();
+                    if (field == "content") {
+                        entry.content = arr[i+1].asString();
+                    } else if (field == "updated_at") {
+                        entry.updated_at = std::stoull(arr[i+1].asString());
+                    }
                 }
+                if (!entry.content.empty()) return entry;
             }
-            if (!entry.content.empty()) return entry;
         }
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in getTile: " << e.what();

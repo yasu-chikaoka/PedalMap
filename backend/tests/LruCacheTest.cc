@@ -6,7 +6,7 @@
 namespace {
 
 TEST(LruCacheTest, InsertAndGet) {
-    cycling::cycling::utils::LruCache<std::string, int> cache(2);
+    cycling::utils::LruCache<std::string, int> cache(2);
     cache.put("a", 1);
     
     auto val = cache.get("a");
