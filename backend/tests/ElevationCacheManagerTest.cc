@@ -54,22 +54,25 @@ TEST(ElevationCacheManagerTest, L1CacheHit) {
     
     ElevationCacheManager manager(mockRepo, mockProvider, refreshService);
     
-    // Pre-populate L1 cache via getTile's internal mechanism?
-    // Cannot easily access L1 cache directly.
-    // But we can simulate L2 hit first, then L1 hit.
+    // Setup L2 return with full size
+    std::string csvContent;
+    for(int i=0; i<256*256; ++i) {
+        if(i>0) csvContent += ",";
+        csvContent += "0.0";
+    }
     
     EXPECT_CALL(*mockRepo, getTile(15, 0, 0))
-        .WillOnce(Return(ElevationCacheEntry{"0.0,10.0,20.0", 123456789})); // L2 Hit
+        .WillOnce(Return(ElevationCacheEntry{csvContent, 123456789})); // L2 Hit
         
     // First call: L2 Hit -> L1 Populated
     auto result1 = manager.getTile(15, 0, 0);
     ASSERT_NE(result1, nullptr);
-    EXPECT_EQ(result1->size(), 3); // Based on our stub content
+    EXPECT_EQ(result1->size(), 256*256);
     
     // Second call: L1 Hit (Repository should NOT be called again)
     auto result2 = manager.getTile(15, 0, 0);
     ASSERT_NE(result2, nullptr);
-    EXPECT_EQ((*result2)[1], 10.0);
+    EXPECT_EQ((*result2)[0], 0.0);
 }
 
 TEST(ElevationCacheManagerTest, L2CacheHit) {
