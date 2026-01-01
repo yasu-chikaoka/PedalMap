@@ -26,20 +26,25 @@ Route::Route()
     // Redis Client (Drogon global client)
     // Note: createRedisClient was called in main.cc. We can retrieve it via app().getRedisClient().
     auto redisClient = drogon::app().getRedisClient();
-    auto repository = std::make_shared<services::elevation::RedisElevationAdapter>(redisClient);
+    if (redisClient) {
+        auto repository = std::make_shared<services::elevation::RedisElevationAdapter>(redisClient);
 
-    auto refreshService =
-        std::make_shared<services::elevation::SmartRefreshService>(repository, backendProvider);
-    // Config values
-    refreshService->setRefreshThreshold(configService_->getElevationRefreshThresholdScore());
-    refreshService->startWorker();
+        auto refreshService =
+            std::make_shared<services::elevation::SmartRefreshService>(repository, backendProvider);
+        // Config values
+        refreshService->setRefreshThreshold(configService_->getElevationRefreshThresholdScore());
+        refreshService->startWorker();
 
-    auto elevationManager = std::make_shared<services::elevation::ElevationCacheManager>(
-        repository, backendProvider, refreshService,
-        configService_->getElevationLruCacheCapacity());
+        auto elevationManager = std::make_shared<services::elevation::ElevationCacheManager>(
+            repository, backendProvider, refreshService,
+            configService_->getElevationLruCacheCapacity());
 
-    // RouteServiceの初期化と依存注入 (ManagerをProviderとして渡す)
-    routeService_ = std::make_shared<services::RouteService>(elevationManager);
+        // RouteServiceの初期化と依存注入 (ManagerをProviderとして渡す)
+        routeService_ = std::make_shared<services::RouteService>(elevationManager);
+    } else {
+        LOG_WARN << "Redis client not available, RouteService initialized without elevation cache";
+        routeService_ = std::make_shared<services::RouteService>(backendProvider);
+    }
 }
 
 void Route::generate(const HttpRequestPtr &req,

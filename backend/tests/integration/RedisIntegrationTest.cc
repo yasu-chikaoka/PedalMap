@@ -24,6 +24,7 @@ class RedisIntegrationTest : public ::testing::Test {
 
     void SetUp() override {
         redisClient_ = drogon::app().getRedisClient();
+        ASSERT_TRUE(redisClient_) << "Redis client is null. Did SetUpTestSuite run?";
         adapter_ = std::make_unique<RedisElevationAdapter>(redisClient_);
 
         // Wait for Redis connection (simple retry)
@@ -31,13 +32,19 @@ class RedisIntegrationTest : public ::testing::Test {
         bool connected = false;
         while (retries < 5 && !connected) {
             try {
-                redisClient_->execCommandSync([](const drogon::nosql::RedisResult& r) { return r; },
-                                              "PING");
-                connected = true;
+                auto result = redisClient_->execCommandSync(
+                    [](const drogon::nosql::RedisResult& r) { return r; }, "PING");
+                if (result.asString() == "PONG") {
+                    connected = true;
+                }
             } catch (...) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 retries++;
             }
+        }
+        if (!connected) {
+            GTEST_SKIP() << "Redis server not available at "
+                         << (std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1");
         }
     }
 

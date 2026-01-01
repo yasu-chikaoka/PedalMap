@@ -7,7 +7,11 @@
 namespace services::elevation {
 
 RedisElevationAdapter::RedisElevationAdapter(drogon::nosql::RedisClientPtr redisClient)
-    : redisClient_(std::move(redisClient)) {}
+    : redisClient_(std::move(redisClient)) {
+    if (!redisClient_) {
+        throw std::runtime_error("Redis client is null");
+    }
+}
 
 std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, int y) {
     std::string key = makeDataKey(z, x, y);
