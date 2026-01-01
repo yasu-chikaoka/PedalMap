@@ -93,19 +93,29 @@ jobs:
           git submodule update --init
           mkdir build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          # hiredis の場所を明示しつつ、Drogon が Redis を見つけられるように強制する
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_EXAMPLES=OFF \
+            -DENABLE_REDIS=ON \
+            -DHiredis_INCLUDE_DIR=/usr/include/hiredis \
+            -DHiredis_LIBRARIES=/usr/lib/x86_64-linux-gnu/libhiredis.so
           make -j$(nproc)
           sudo make install
           cd ../..
           rm -rf drogon
 
       - name: Configure CMake (Test Only)
-        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        run: |
+          rm -rf build
+          cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
         run: cmake --build build -j$(nproc)
 
       - name: Test
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
         run: |
           cd build
           ctest --output-on-failure

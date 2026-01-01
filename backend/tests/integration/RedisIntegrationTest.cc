@@ -19,11 +19,25 @@ class RedisIntegrationTest : public ::testing::Test {
             std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
         const int port = std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
 
-        drogon::app().createRedisClient(host, port);
+        // Check if client is already created to avoid multiple creation attempts
+        try {
+            drogon::app().getRedisClient();
+        } catch (...) {
+            drogon::app().createRedisClient(host, port);
+        }
     }
 
     void SetUp() override {
         redisClient_ = drogon::app().getRedisClient();
+        if (!redisClient_) {
+            // Try to create it if it doesn't exist (fallback)
+            const std::string host =
+                std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
+            const int port = std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
+             drogon::app().createRedisClient(host, port);
+             redisClient_ = drogon::app().getRedisClient();
+        }
+
         ASSERT_TRUE(redisClient_) << "Redis client is null. Did SetUpTestSuite run?";
         adapter_ = std::make_unique<RedisElevationAdapter>(redisClient_);
 
@@ -53,6 +67,7 @@ class RedisIntegrationTest : public ::testing::Test {
 };
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {
+    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
     try {
         auto result = redisClient_->execCommandSync(
             [](const drogon::nosql::RedisResult& r) { return r; }, "PING");
@@ -63,6 +78,7 @@ TEST_F(RedisIntegrationTest, ConnectionAndPing) {
 }
 
 TEST_F(RedisIntegrationTest, SaveAndGetTile) {
+    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
     int z = 15, x = 123, y = 456;
     std::string content = "1.0,2.0,3.0";
 
@@ -78,19 +94,23 @@ TEST_F(RedisIntegrationTest, SaveAndGetTile) {
 }
 
 TEST_F(RedisIntegrationTest, BinarySafety) {
+    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
     int z = 15, x = 999, y = 999;
     // Mocking binary data with null bytes
     std::string binaryContent = "start\0middle\0end"s;
 
+    // Save
     bool saved = adapter_->saveTile(z, x, y, binaryContent);
     EXPECT_TRUE(saved);
 
+    // Get
     auto entry = adapter_->getTile(z, x, y);
     ASSERT_TRUE(entry.has_value());
     EXPECT_EQ(entry->content, binaryContent);
 }
 
 TEST_F(RedisIntegrationTest, RefreshQueue) {
+    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
     int z = 10, x = 1, y = 2;
     adapter_->addToRefreshQueue(z, x, y);
 
@@ -103,6 +123,7 @@ TEST_F(RedisIntegrationTest, RefreshQueue) {
 }
 
 TEST_F(RedisIntegrationTest, ScoreAndDecay) {
+    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
     int z = 15, x = 0, y = 0;
 
     // Initial score increment
