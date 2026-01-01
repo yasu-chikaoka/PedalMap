@@ -11,7 +11,8 @@ PedalMapは、サイクリスト向けのルート自動生成Webアプリケー
 *   **高速ルート計算**: C++ (OSRM) によるバックエンドで、瞬時に最適ルートを算出。
 *   **自転車特化**: 自動車用ナビとは異なる、自転車に適したルート（OSRM Bicycle Profile）を使用。
 *   **直感的なUI**: Google Maps と連携し、地名検索やルート描画をスムーズに実現。
-*   **スポット提案**: ルート沿いのカフェやレストランなどの休憩スポットを提案（現在はモックデータ）。
+*   **スポット提案**: Google Places API を活用し、ルート沿いのカフェやレストランなどの休憩スポットを提案。
+*   **高低差表示**: 国土地理院（GSI）標高タイルAPIを利用し、ルートの標高プロファイルを表示。
 
 ## 🛠️ 技術スタック
 
@@ -19,7 +20,7 @@ PedalMapは、サイクリスト向けのルート自動生成Webアプリケー
 | :--- | :--- |
 | **Frontend** | Next.js (TypeScript), Tailwind CSS, Google Maps API |
 | **Backend** | C++20, Drogon (Web Framework), OSRM (Routing Engine) |
-| **Data** | OpenStreetMap (OSM) Data |
+| **Data** | OpenStreetMap (OSM), 国土地理院 標高タイル |
 | **Environment** | Docker, Docker Compose |
 
 ## 🏁 始め方 (Getting Started)
@@ -38,23 +39,25 @@ cd PedalMap
 
 ### 2. 環境変数の設定
 
-フロントエンド用の環境変数ファイルを作成し、Google Maps APIキーを設定します。
+フロントエンドおよびバックエンド用の環境変数ファイルを作成し、Google Maps APIキーを設定します。
 
 ```bash
-# frontend/.env.local.example を参考に作成
-touch frontend/.env.local
+# プロジェクトルートで実行
+touch .env
 ```
 
-`frontend/.env.local` の内容:
+`.env` の内容 (プロジェクトルート):
 
 ```env
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=あなたのAPIキーをここに貼り付け
+GOOGLE_PLACES_API_KEY=あなたのAPIキーをここに貼り付け
 NEXT_PUBLIC_API_ENDPOINT=http://localhost:8080/api/v1
 ```
 
+※ フロントエンドの `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` は `docker-compose.yml` 内で `GOOGLE_PLACES_API_KEY` から自動的に引き継がれます。
+
 ### 3. OSRMデータの準備（初回のみ）
 
-※リポジトリには地図データ（数百MB）は含まれていません。初回起動時にダウンロードと前処理が必要です。
+※リポジトリには地図データ（数百MB）は含まれていません。初回起動時にダウンロードと前処理が必要です。現在は中部地方のデータを対象としています。
 
 ```bash
 # 地図データのダウンロードと前処理を行うためのディレクトリ作成
@@ -66,10 +69,10 @@ sudo docker compose up -d
 # バックエンドコンテナ内で地図データをダウンロード＆処理
 # (注意: 数分〜十数分かかります)
 sudo docker compose exec backend bash -c "
-  curl -L -o /data/kanto-latest.osm.pbf http://download.geofabrik.de/asia/japan/kanto-latest.osm.pbf && \
-  osrm-extract -p /usr/local/share/osrm/profiles/bicycle.lua /data/kanto-latest.osm.pbf && \
-  osrm-partition /data/kanto-latest.osrm && \
-  osrm-customize /data/kanto-latest.osrm
+  curl -L -o /data/chubu-latest.osm.pbf http://download.geofabrik.de/asia/japan/chubu-latest.osm.pbf && \
+  osrm-extract -p /usr/local/share/osrm/profiles/bicycle.lua /data/chubu-latest.osm.pbf && \
+  osrm-partition /data/chubu-latest.osrm && \
+  osrm-customize /data/chubu-latest.osrm
 "
 ```
 
@@ -97,11 +100,15 @@ sudo docker compose exec backend bash -c "mkdir -p build && cd build && cmake ..
 .
 ├── backend/            # C++ Backend Project
 │   ├── controllers/    # API Controllers
+│   ├── services/       # Business Logic
+│   │   └── elevation/  # Elevation Data Services (GSI)
+│   ├── utils/          # Common Utilities
 │   ├── CMakeLists.txt  # Build Config
 │   └── main.cc         # Entry Point
 ├── frontend/           # Next.js Frontend Project
 │   ├── app/            # App Router Pages
-│   └── components/     # React Components
+│   ├── components/     # React Components
+│   └── hooks/          # Custom Hooks
 ├── osrm-data/          # Map Data (Git Ignored)
 └── docker-compose.yml  # Container Orchestration
 ```
@@ -122,7 +129,7 @@ MIT License
 本プロジェクトでは、以下のオープンソースソフトウェアおよびデータを使用しています。
 
 *   **OpenStreetMap Data**: © OpenStreetMap contributors (ODbL License)
-    *   本アプリケーションのルートデータは OpenStreetMap のデータに基づいています。
+*   **国土地理院 標高タイル**: 国土地理院の利用規約に従って使用
 *   **Project-OSRM**: BSD 2-Clause License
 *   **Drogon**: MIT License
 *   **Next.js / React**: MIT License
