@@ -87,6 +87,9 @@ add_executable(
   tests/RouteSimulationTest.cc
   tests/GSIElevationProviderTest.cc
   tests/LruCacheTest.cc
+  tests/ElevationCacheManagerTest.cc
+  tests/SmartRefreshServiceTest.cc
+  tests/integration/RedisIntegrationTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
@@ -101,6 +104,7 @@ add_executable(
 target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
+  GTest::gmock
   osrm
   Drogon::Drogon
   ${Boost_LIBRARIES}
