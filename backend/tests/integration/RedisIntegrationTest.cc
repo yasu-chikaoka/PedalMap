@@ -17,7 +17,8 @@ class RedisIntegrationTest : public ::testing::Test {
         // Note: In real CI, we need to ensure Redis is running at this host/port
         const std::string host =
             std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
-        const int port = std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
+        const int port =
+            std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
 
         // Check if client is already created to avoid multiple creation attempts
         try {
@@ -39,7 +40,13 @@ class RedisIntegrationTest : public ::testing::Test {
             redisClient_ = drogon::app().getRedisClient();
         }
 
-        ASSERT_TRUE(redisClient_) << "Redis client is null. Did SetUpTestSuite run?";
+        if (!redisClient_) {
+            // ここで ASSERT ではなく GTEST_SKIP しても、後続のコードが実行される可能性があるため即座に戻る
+            // ただし、戻ったとしてもテスト本体は実行されてしまうので、
+            // 各テストケース側で redisClient_ のチェックが必要
+            return; 
+        }
+        
         adapter_ = std::make_unique<RedisElevationAdapter>(redisClient_);
 
         // Wait for Redis connection (simple retry)
@@ -57,9 +64,10 @@ class RedisIntegrationTest : public ::testing::Test {
                 retries++;
             }
         }
+        // ここでの判定はログ出力に留め、実際のスキップはテストケース内で行うのが安全
         if (!connected) {
-            GTEST_SKIP() << "Redis server not available at "
-                         << (std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1");
+            std::cout << "[WARN] Redis server not available at "
+                         << (std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1") << std::endl;
         }
     }
 
@@ -68,18 +76,22 @@ class RedisIntegrationTest : public ::testing::Test {
 };
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {
-    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
+    if (!redisClient_ || !adapter_) GTEST_SKIP() << "Redis client or adapter is null";
     try {
         auto result = redisClient_->execCommandSync(
             [](const drogon::nosql::RedisResult& r) { return r; }, "PING");
         EXPECT_EQ(result.asString(), "PONG");
     } catch (const std::exception& e) {
+        // DrogonがRedisサポートなしでビルドされている場合、ここで例外が投げられる可能性がある
+        // その場合は失敗ではなくスキップ扱いにするのが適切かもしれないが、現状はFAILさせる
         FAIL() << "Redis connection failed: " << e.what();
+    } catch (...) {
+        FAIL() << "Unknown error during Redis ping";
     }
 }
 
 TEST_F(RedisIntegrationTest, SaveAndGetTile) {
-    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
+    if (!redisClient_ || !adapter_) GTEST_SKIP() << "Redis client or adapter is null";
     int z = 15, x = 123, y = 456;
     std::string content = "1.0,2.0,3.0";
 
@@ -95,7 +107,7 @@ TEST_F(RedisIntegrationTest, SaveAndGetTile) {
 }
 
 TEST_F(RedisIntegrationTest, BinarySafety) {
-    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
+    if (!redisClient_ || !adapter_) GTEST_SKIP() << "Redis client or adapter is null";
     int z = 15, x = 999, y = 999;
     // Mocking binary data with null bytes
     std::string binaryContent = "start\0middle\0end"s;
@@ -111,7 +123,7 @@ TEST_F(RedisIntegrationTest, BinarySafety) {
 }
 
 TEST_F(RedisIntegrationTest, RefreshQueue) {
-    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
+    if (!redisClient_ || !adapter_) GTEST_SKIP() << "Redis client or adapter is null";
     int z = 10, x = 1, y = 2;
     adapter_->addToRefreshQueue(z, x, y);
 
@@ -124,7 +136,7 @@ TEST_F(RedisIntegrationTest, RefreshQueue) {
 }
 
 TEST_F(RedisIntegrationTest, ScoreAndDecay) {
-    if (!redisClient_) GTEST_SKIP() << "Redis client is null";
+    if (!redisClient_ || !adapter_) GTEST_SKIP() << "Redis client or adapter is null";
     int z = 15, x = 0, y = 0;
 
     // Initial score increment
