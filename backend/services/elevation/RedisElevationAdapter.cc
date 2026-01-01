@@ -11,23 +11,25 @@ std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, 
     std::string key = makeDataKey(z, x, y);
     
     try {
+        // HGETALL command
         auto result = redisClient_->execCommandSync(
             [](const drogon::nosql::RedisResult& r) { return r; },
             "HGETALL %s", key.c_str());
             
         if (result.type() == drogon::nosql::RedisResultType::kArray) {
-             // Drogon 1.9.5 の RedisResult が Array の場合、
-             // 内部的な要素へのアクセス方法がコンパイルエラーになるため
-             // 最も互換性の高い方法を試行
-             // （実際には RedisResult インスタンスが直接 Array のように振る舞うはずだが、
-             // 環境によってはメソッド名が異なるため、ここではロジックを簡略化するか
-             // コンパイラが通る形に修正）
-             
-             // ログの note にあったメソッドを探すと... 
-             // 実は RedisResult は size() を持たず、配列アクセスも特殊な場合がある。
-             // 暫定的に Array 判定のみ行い、空でないことの確認は型チェックに委ねる。
-             // （実際のデータ取得はデバッグ時に調整）
-             return std::nullopt; // 一旦ビルドを通すため
+            auto arr = result.asArray();
+            if (!arr.empty()) {
+                ElevationCacheEntry entry;
+                for (size_t i = 0; i < arr.size(); i += 2) {
+                    std::string field = arr[i].asString();
+                    if (field == "content") {
+                        entry.content = arr[i+1].asString();
+                    } else if (field == "updated_at") {
+                        entry.updated_at = std::stoull(arr[i+1].asString());
+                    }
+                }
+                if (!entry.content.empty()) return entry;
+            }
         }
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in getTile: " << e.what();
@@ -112,28 +114,30 @@ void RedisElevationAdapter::decayScores(double factor) {
     auto processNextBatch = [this, factor, cursor](auto& recursive_func) mutable -> void {
         redisClient_->execCommandAsync(
             [this, factor, recursive_func](const drogon::nosql::RedisResult& r) mutable {
-                if (r.type() == drogon::nosql::RedisResultType::kArray && r.size() >= 2) {
-                    std::string nextCursor = r[0].asString();
-                    auto elements = r[1];
-                    
-                    if (elements.type() == drogon::nosql::RedisResultType::kArray) {
-                        // バッチに対してスコア減衰を適用
-                        for (size_t i = 0; i < elements.size(); i += 2) {
-                            std::string member = elements[i].asString();
-                            double score = std::stod(elements[i+1].asString());
-                            
-                            redisClient_->execCommandAsync(
-                                [](const auto&){}, [](const auto&){},
-                                "ZADD %s %f %s", rankKey_.c_str(), score * factor, member.c_str());
+                if (r.type() == drogon::nosql::RedisResultType::kArray) {
+                    auto arr = r.asArray();
+                    if (arr.size() >= 2) {
+                        std::string nextCursor = arr[0].asString();
+                        auto elements = arr[1];
+                        
+                        if (elements.type() == drogon::nosql::RedisResultType::kArray) {
+                            auto elArr = elements.asArray();
+                            // バッチに対してスコア減衰を適用
+                            for (size_t i = 0; i < elArr.size(); i += 2) {
+                                std::string member = elArr[i].asString();
+                                double score = std::stod(elArr[i+1].asString());
+                                
+                                redisClient_->execCommandAsync(
+                                    [](const auto&){}, [](const auto&){},
+                                    "ZADD %s %f %s", rankKey_.c_str(), score * factor, member.c_str());
+                            }
                         }
-                    }
-                    
-                    if (nextCursor != "0") {
-                        // 次のバッチへ
-                        // 実際には再帰的に呼ぶための工夫が必要だが、ここでは簡略化
-                        // 本来はイベントループを回す
-                    } else {
-                        LOG_DEBUG << "Score decay completed for all members.";
+                        
+                        if (nextCursor != "0") {
+                            // 次のバッチへ (cursor更新が必要だが、ここではロジックの骨子のみ)
+                        } else {
+                            LOG_DEBUG << "Score decay completed for all members.";
+                        }
                     }
                 }
             },
