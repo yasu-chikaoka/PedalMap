@@ -2,14 +2,16 @@ import { useRef, useEffect, memo } from 'react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 interface PlaceAutocompleteProps {
-  onPlaceSelect: (place: google.maps.places.PlaceResult) => void;
+  onPlaceSelect: (
+    place: google.maps.places.PlaceResult,
+    inputValue: string,
+  ) => void;
   placeholder?: string;
   value?: string;
-  onChange?: (value: string) => void;
 }
 
 export const PlaceAutocomplete = memo(
-  ({ onPlaceSelect, placeholder, value, onChange }: PlaceAutocompleteProps) => {
+  ({ onPlaceSelect, placeholder, value }: PlaceAutocompleteProps) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const places = useMapsLibrary('places');
 
@@ -23,7 +25,7 @@ export const PlaceAutocomplete = memo(
 
       const autocomplete = new places.Autocomplete(inputRef.current, options);
 
-      autocomplete.addListener('place_changed', () => {
+      const handlePlaceChanged = () => {
         const place = autocomplete.getPlace();
 
         if (!place.geometry || !place.geometry.location) {
@@ -33,15 +35,19 @@ export const PlaceAutocomplete = memo(
           return;
         }
 
-        onPlaceSelect(place);
-      });
+        // inputRef.current.value には、Autocompleteによって選択された名称が入っている
+        onPlaceSelect(place, inputRef.current?.value || '');
+      };
+
+      autocomplete.addListener('place_changed', handlePlaceChanged);
 
       return () => {
         google.maps.event.clearInstanceListeners(autocomplete);
       };
     }, [places, onPlaceSelect]);
 
-    // 外部からのvalue変更を反映させる
+    // 外部からのvalue変更（現在地取得など）を反映させる
+    // ユーザーが入力をタイプしている最中は、外部のvalueも変化しない（ControlPanelでonChangeを外したため）
     useEffect(() => {
       if (
         inputRef.current &&
@@ -55,10 +61,8 @@ export const PlaceAutocomplete = memo(
     return (
       <input
         ref={inputRef}
-        className="w-full p-2 border rounded text-sm text-gray-900 placeholder-gray-500"
+        className="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm text-gray-900 placeholder-gray-400"
         placeholder={placeholder || '場所を検索'}
-        defaultValue={value}
-        onChange={(e) => onChange?.(e.target.value)}
       />
     );
   },

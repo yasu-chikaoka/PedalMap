@@ -1,9 +1,13 @@
 #include "RouteService.h"
 
+#include <drogon/HttpAppFramework.h>
+
 #include <cmath>
 #include <iostream>
 #include <numbers>
 #include <osrm/nearest_parameters.hpp>
+
+#include "elevation/IElevationProvider.h"
 
 namespace services {
 
@@ -31,6 +35,9 @@ double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
 }
 
 }  // namespace
+
+RouteService::RouteService(std::shared_ptr<elevation::IElevationProvider> elevationProvider)
+    : elevationProvider_(std::move(elevationProvider)) {}
 
 std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& start,
                                                              const Coordinate& end,
@@ -159,14 +166,14 @@ std::vector<Coordinate> RouteService::calculatePolygonDetourPoints(const Coordin
     std::vector<Coordinate> result;
     // P1: 1/3 point + offset
     double p1Lat = start.lat + (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
-    double p1Lon = start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+    double p1Lon = start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLatDegToKm;
     result.push_back({p1Lat, p1Lon});
 
     // P2: 2/3 point + offset
     double p2Lat =
         start.lat + 2.0 * (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
     double p2Lon =
-        start.lon + 2.0 * (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+        start.lon + 2.0 * (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLatDegToKm;
     result.push_back({p2Lat, p2Lon});
 
     return result;
@@ -247,11 +254,11 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
             double p1Lat =
                 start.lat + (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
             double p1Lon =
-                start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLonDegToKm;
+                start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLatDegToKm;
             double p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 +
                            (perpY * offsetHeight) / kLatDegToKm;
             double p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 +
-                           (perpX * offsetHeight) / kLonDegToKm;
+                           (perpX * offsetHeight) / kLatDegToKm;
             candidates.push_back({{{p1Lat, p1Lon}, {p2Lat, p2Lon}}, "Polygon"});
 
             // 反対側
@@ -278,14 +285,11 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
             double distDiff = std::abs(result->distance_m / 1000.0 - targetDistanceKm);
             double elevDiff = 0.0;
             if (targetElevationM > 0) {
-                // TODO: 標高データが取得できている場合のみ計算
-                // 現状は0が入っているため、機能しないが枠組みとして用意
                 elevDiff = std::abs(result->elevation_gain_m - targetElevationM);
             }
 
             // コスト関数: 距離誤差と標高誤差の加重和
-            // 正規化: 距離はkm単位、標高はm単位だが、1kmの重みと100mの重みをどう考えるか
-            // ここでは単純に値を重み付けする
+            // 正規化: 距離はkm単位、標高はm単位
             double cost = kW_Distance * distDiff + kW_Elevation * (elevDiff / 100.0);
 
             if (cost < minCost) {
@@ -334,59 +338,88 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
     return params;
 }
 
-std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& osrmResult) {
+std::optional<RouteResult> RouteService::processRoute(const osrm::util::json::Object& osrmResult) {
     if (!osrmResult.values.contains("routes")) {
         return std::nullopt;
     }
-    const auto& routes = osrmResult.values.at("routes").get<osrm::json::Array>();
+    const auto& routes = osrmResult.values.at("routes").get<osrm::util::json::Array>();
     if (routes.values.empty()) {
         return std::nullopt;
     }
 
-    const auto& route = routes.values[0].get<osrm::json::Object>();
+    const auto& route = routes.values[0].get<osrm::util::json::Object>();
     RouteResult res;
-    res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
-    res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
+    res.distance_m = route.values.at("distance").get<osrm::util::json::Number>().value;
+    res.duration_s = route.values.at("duration").get<osrm::util::json::Number>().value;
+    res.geometry = route.values.at("geometry").get<osrm::util::json::String>().value;
     res.elevation_gain_m = 0.0;
-    res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
 
     if (route.values.contains("legs")) {
-        const auto& legs = route.values.at("legs").get<osrm::json::Array>();
+        const auto& legs = route.values.at("legs").get<osrm::util::json::Array>();
         for (const auto& legValue : legs.values) {
-            const auto& leg = legValue.get<osrm::json::Object>();
+            const auto& leg = legValue.get<osrm::util::json::Object>();
             if (leg.values.contains("steps")) {
-                const auto& steps = leg.values.at("steps").get<osrm::json::Array>();
+                const auto& steps = leg.values.at("steps").get<osrm::util::json::Array>();
                 for (const auto& stepValue : steps.values) {
-                    const auto& step = stepValue.get<osrm::json::Object>();
+                    const auto& step = stepValue.get<osrm::util::json::Object>();
                     if (step.values.contains("intersections")) {
                         const auto& intersections =
-                            step.values.at("intersections").get<osrm::json::Array>();
+                            step.values.at("intersections").get<osrm::util::json::Array>();
                         for (const auto& intersectionValue : intersections.values) {
-                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
+                            const auto& intersection =
+                                intersectionValue.get<osrm::util::json::Object>();
                             if (intersection.values.contains("location")) {
-                                const auto& loc =
-                                    intersection.values.at("location").get<osrm::json::Array>();
-                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
-                                                    loc.values[0].get<osrm::json::Number>().value});
+                                const auto& loc = intersection.values.at("location")
+                                                      .get<osrm::util::json::Array>();
+                                res.path.push_back(
+                                    {loc.values[1].get<osrm::util::json::Number>().value,
+                                     loc.values[0].get<osrm::util::json::Number>().value});
                             }
                         }
                     }
                 }
             }
-            // Annotation processing for elevation gain
-            if (leg.values.contains("annotation")) {
-                const auto& annotation = leg.values.at("annotation").get<osrm::json::Object>();
-                if (annotation.values.contains("datasources")) {
-                    const auto& datasources =
-                        annotation.values.at("datasources").get<osrm::json::Array>();
-                    // TODO: Implement elevation lookup from datasources or metadata if available
-                    // For now, we rely on external or simulation data as OSRM doesn't output
-                    // elevation by default without specific profile adjustments.
-                }
-            }
         }
     }
+
+    // 獲得標高の計算
+    if (elevationProvider_ && !res.path.empty()) {
+        res.elevation_gain_m = calculateElevationGain(res.path);
+        LOG_DEBUG << "Processed path size: " << res.path.size()
+                  << ", calculated elevation gain: " << res.elevation_gain_m;
+    } else {
+        LOG_DEBUG << "No elevation calculation: "
+                  << (elevationProvider_ ? "path empty" : "no provider");
+    }
+
     return res;
+}
+
+double RouteService::calculateElevationGain(const std::vector<Coordinate>& path) {
+    if (!elevationProvider_ || path.empty()) {
+        return 0.0;
+    }
+
+    double totalGain = 0.0;
+    std::optional<double> lastElevation = std::nullopt;
+
+    LOG_DEBUG << "Starting elevation gain calculation for " << path.size() << " points";
+
+    // パフォーマンス向上のため、全地点ではなく適度な間隔でサンプリングすることを検討
+    // ここでは単純に全地点を同期的に取得
+    for (const auto& coord : path) {
+        auto currentElevation = elevationProvider_->getElevationSync(coord);
+        if (currentElevation) {
+            if (lastElevation) {
+                if (*currentElevation > *lastElevation) {
+                    totalGain += (*currentElevation - *lastElevation);
+                }
+            }
+            lastElevation = currentElevation;
+        }
+    }
+
+    return totalGain;
 }
 
 }  // namespace services

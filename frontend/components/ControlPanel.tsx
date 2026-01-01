@@ -1,6 +1,7 @@
 'use client';
 
 import { MapPin, Navigation, Activity } from 'lucide-react';
+import { useCallback } from 'react';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { WaypointsList } from '@/components/WaypointsList';
 import { RouteStats } from '@/components/RouteStats';
@@ -56,6 +57,32 @@ export const ControlPanel = ({
     APP_CONFIG.GOOGLE_MAPS.API_KEY &&
     APP_CONFIG.GOOGLE_MAPS.API_KEY !== 'YOUR_API_KEY_HERE';
 
+  const handleStartPlaceSelect = useCallback(
+    (place: google.maps.places.PlaceResult, inputValue: string) => {
+      if (place.geometry?.location) {
+        setStartPoint({
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        });
+        setStartPlaceName(inputValue || place.name || '');
+      }
+    },
+    [setStartPoint, setStartPlaceName],
+  );
+
+  const handleEndPlaceSelect = useCallback(
+    (place: google.maps.places.PlaceResult, inputValue: string) => {
+      if (place.geometry?.location) {
+        setEndPoint({
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng(),
+        });
+        setEndPlaceName(inputValue || place.name || '');
+      }
+    },
+    [setEndPoint, setEndPlaceName],
+  );
+
   return (
     <div className="w-full md:w-1/3 p-6 bg-white shadow-lg z-10 overflow-y-auto h-full">
       <h1 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
@@ -86,18 +113,9 @@ export const ControlPanel = ({
                 <div className="relative group">
                   {hasApiKey ? (
                     <PlaceAutocomplete
-                      onPlaceSelect={(place) => {
-                        if (place.geometry?.location) {
-                          setStartPoint({
-                            lat: place.geometry.location.lat(),
-                            lng: place.geometry.location.lng(),
-                          });
-                          if (place.name) setStartPlaceName(place.name);
-                        }
-                      }}
+                      onPlaceSelect={handleStartPlaceSelect}
                       placeholder={UI_TEXT.PLACEHOLDERS.START_SEARCH}
                       value={startPlaceName}
-                      onChange={setStartPlaceName}
                     />
                   ) : (
                     <div className="flex gap-2">
@@ -148,18 +166,9 @@ export const ControlPanel = ({
                 <div className="relative group">
                   {hasApiKey ? (
                     <PlaceAutocomplete
-                      onPlaceSelect={(place) => {
-                        if (place.geometry?.location) {
-                          setEndPoint({
-                            lat: place.geometry.location.lat(),
-                            lng: place.geometry.location.lng(),
-                          });
-                          if (place.name) setEndPlaceName(place.name);
-                        }
-                      }}
+                      onPlaceSelect={handleEndPlaceSelect}
                       placeholder={UI_TEXT.PLACEHOLDERS.END_SEARCH}
                       value={endPlaceName}
-                      onChange={setEndPlaceName}
                     />
                   ) : (
                     <div className="flex gap-2">
