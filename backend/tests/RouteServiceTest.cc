@@ -86,7 +86,7 @@ TEST_F(RouteServiceTest, FindBestRoute_ElevationConsidered) {
         return res;
     };
 
-    auto result = service_->findBestRoute(start, end, targetDist, targetElev, evaluator);
+    auto result = service_->findBestRoute(start, end, {}, targetDist, targetElev, evaluator);
     ASSERT_TRUE(result.has_value());
     EXPECT_DOUBLE_EQ(result->elevation_gain_m, 10.0);
 }

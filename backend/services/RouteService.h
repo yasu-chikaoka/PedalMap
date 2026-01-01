@@ -53,6 +53,7 @@ class RouteService {
         std::function<std::optional<RouteResult>(const std::vector<Coordinate>&)>;
 
     virtual std::optional<RouteResult> findBestRoute(const Coordinate& start, const Coordinate& end,
+                                                     const std::vector<Coordinate>& fixedWaypoints,
                                                      double targetDistanceKm,
                                                      double targetElevationM,
                                                      const RouteEvaluator& evaluator);

@@ -207,7 +207,7 @@ export const ControlPanel = ({
                 <div className="space-y-1">
                   <label
                     htmlFor="target-distance"
-                    className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                    className="block text-xs font-bold text-gray-700 uppercase tracking-wider"
                   >
                     {UI_TEXT.LABELS.TARGET_DISTANCE} (km)
                   </label>
@@ -219,7 +219,7 @@ export const ControlPanel = ({
                       onChange={(e) =>
                         setTargetDistance(parseFloat(e.target.value) || 0)
                       }
-                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
                       min={APP_CONFIG.ROUTES.MIN_DISTANCE_KM}
                       max={APP_CONFIG.ROUTES.MAX_DISTANCE_KM}
                     />
@@ -228,7 +228,7 @@ export const ControlPanel = ({
                 <div className="space-y-1">
                   <label
                     htmlFor="target-elevation"
-                    className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                    className="block text-xs font-bold text-gray-700 uppercase tracking-wider"
                   >
                     {UI_TEXT.LABELS.TARGET_ELEVATION} (m)
                   </label>
@@ -240,7 +240,7 @@ export const ControlPanel = ({
                       onChange={(e) =>
                         setTargetElevation(parseFloat(e.target.value) || 0)
                       }
-                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm"
                       min={APP_CONFIG.ROUTES.MIN_ELEVATION_M}
                       max={APP_CONFIG.ROUTES.MAX_ELEVATION_M}
                     />

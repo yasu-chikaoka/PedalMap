@@ -75,11 +75,16 @@ export default function Home() {
         name: stop.name,
         location: { lat: stop.location.lat, lng: stop.location.lon },
       };
-      setWaypoints((prev) => [...prev, newWaypoint]);
+
+      const newWaypoints = [...waypoints, newWaypoint];
+      setWaypoints(newWaypoints);
       setSelectedSpot(null);
       toast.success('経由地を追加しました');
+
+      // 経由地追加後に自動でルートを再生成（調整）
+      generateRoute(newWaypoints);
     },
-    [waypoints],
+    [waypoints, generateRoute],
   );
 
   // 現在地取得処理
