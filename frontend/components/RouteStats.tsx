@@ -17,31 +17,31 @@ export const RouteStats = ({ routeData, onSpotClick }: RouteStatsProps) => {
       </h3>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <p className="text-xs text-gray-500 uppercase">
+          <p className="text-xs text-gray-700 font-bold uppercase">
             {UI_TEXT.LABELS.TOTAL_DISTANCE}
           </p>
-          <p className="text-xl font-mono font-bold text-gray-800">
+          <p className="text-xl font-mono font-bold text-gray-900">
             {(routeData.summary.total_distance_m / 1000).toFixed(2)}{' '}
-            <span className="text-sm font-normal">km</span>
+            <span className="text-sm font-normal text-gray-700">km</span>
           </p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 uppercase">
+          <p className="text-xs text-gray-700 font-bold uppercase">
             {UI_TEXT.LABELS.EST_TIME}
           </p>
-          <p className="text-xl font-mono font-bold text-gray-800 flex items-center gap-1">
-            <Clock size={16} className="text-gray-400" />
+          <p className="text-xl font-mono font-bold text-gray-900 flex items-center gap-1">
+            <Clock size={16} className="text-gray-600" />
             {Math.floor(routeData.summary.estimated_moving_time_s / 60)}{' '}
-            <span className="text-sm font-normal">min</span>
+            <span className="text-sm font-normal text-gray-700">min</span>
           </p>
         </div>
         <div>
-          <p className="text-xs text-gray-500 uppercase">
+          <p className="text-xs text-gray-700 font-bold uppercase">
             {UI_TEXT.LABELS.ELEVATION_GAIN}
           </p>
-          <p className="text-xl font-mono font-bold text-gray-800">
+          <p className="text-xl font-mono font-bold text-gray-900">
             {routeData.summary.total_elevation_gain_m}{' '}
-            <span className="text-sm font-normal">m</span>
+            <span className="text-sm font-normal text-gray-700">m</span>
           </p>
         </div>
       </div>

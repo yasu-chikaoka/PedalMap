@@ -181,12 +181,22 @@ std::vector<Coordinate> RouteService::calculatePolygonDetourPoints(const Coordin
 
 std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
                                                        const Coordinate& end,
+                                                       const std::vector<Coordinate>& fixedWaypoints,
                                                        double targetDistanceKm,
                                                        double targetElevationM,
                                                        const RouteEvaluator& evaluator) {
     if (targetDistanceKm <= 0) return std::nullopt;
 
-    double straightDist = calculateDistanceKm(start, end);
+    double straightDist;
+    if (fixedWaypoints.empty()) {
+        straightDist = calculateDistanceKm(start, end);
+    } else {
+        straightDist = calculateDistanceKm(start, fixedWaypoints[0]);
+        for (size_t i = 0; i < fixedWaypoints.size() - 1; ++i) {
+            straightDist += calculateDistanceKm(fixedWaypoints[i], fixedWaypoints[i + 1]);
+        }
+        straightDist += calculateDistanceKm(fixedWaypoints.back(), end);
+    }
 
     // 候補生成のためのパラメータ
     // 直線距離が短い場合は、より大きな係数で探索範囲を広げる
@@ -199,11 +209,11 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
     } else {
         // 現在の距離に対する目標距離の比率に基づく
         double ratio = targetDistanceKm / straightDist;
-        if (ratio < 1.2) {
-            expansionFactors = {0.3, 0.5};  // わずかな迂回
+        if (ratio < 1.1) {
+            expansionFactors = {0.1, 0.2};  // ほとんど迂回しない
         } else {
             // 目標距離に応じた「膨らみ」のバリエーション
-            expansionFactors = {0.8, 1.0, 1.2, 1.5};
+            expansionFactors = {0.5, 0.8, 1.0, 1.2, 1.5};
         }
     }
 
@@ -214,13 +224,21 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
     };
     std::vector<Candidate> candidates;
 
-    double midLat = (start.lat + end.lat) / 2.0;
-    double midLon = (start.lon + end.lon) / 2.0;
+    // まずは経由地のみ（追加の迂回なし）を候補に入れる
+    candidates.push_back({fixedWaypoints, "Direct"});
+
+    // 迂回ポイントを挿入する区間を決定
+    // 経由地がある場合は、スタートから最初の経由地までの間に挿入してみる
+    Coordinate segmentStart = start;
+    Coordinate segmentEnd = fixedWaypoints.empty() ? end : fixedWaypoints[0];
+
+    double midLat = (segmentStart.lat + segmentEnd.lat) / 2.0;
+    double midLon = (segmentStart.lon + segmentEnd.lon) / 2.0;
     const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
     double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
 
-    double vecX = (end.lon - start.lon) * kLonDegToKm;
-    double vecY = (end.lat - start.lat) * kLatDegToKm;
+    double vecX = (segmentEnd.lon - segmentStart.lon) * kLonDegToKm;
+    double vecY = (segmentEnd.lat - segmentStart.lat) * kLatDegToKm;
     double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
 
     // ベクトルが0（完全な周回）の場合、適当な方向（北向きなど）を基準にする
@@ -239,36 +257,39 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
     for (double factor : expansionFactors) {
         double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)  // 周回時の調整
                                              : (targetDistanceKm - straightDist) * 0.5 * factor;
+        
+        if (currentHeight <= 0) continue;
 
         // 幾何学的計算による迂回点 (Single Point)
         for (double side : {-1.0, 1.0}) {
             double viaLat = midLat + (side * perpY * currentHeight) / kLatDegToKm;
             double viaLon = midLon + (side * perpX * currentHeight) / kLonDegToKm;
-            candidates.push_back({{{viaLat, viaLon}}, "Single"});
+            
+            std::vector<Coordinate> candWps;
+            candWps.push_back({viaLat, viaLon});
+            candWps.insert(candWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
+            candidates.push_back({candWps, "Single"});
         }
 
         // Polygon (2 points)
-        // targetDistanceKmに基づいて分割点を計算
         if (vecLen > 0) {
             double offsetHeight = currentHeight * 0.8;
-            double p1Lat =
-                start.lat + (end.lat - start.lat) / 3.0 + (perpY * offsetHeight) / kLatDegToKm;
-            double p1Lon =
-                start.lon + (end.lon - start.lon) / 3.0 + (perpX * offsetHeight) / kLatDegToKm;
-            double p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 +
-                           (perpY * offsetHeight) / kLatDegToKm;
-            double p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 +
-                           (perpX * offsetHeight) / kLatDegToKm;
-            candidates.push_back({{{p1Lat, p1Lon}, {p2Lat, p2Lon}}, "Polygon"});
-
-            // 反対側
-            p1Lat = start.lat + (end.lat - start.lat) / 3.0 - (perpY * offsetHeight) / kLatDegToKm;
-            p1Lon = start.lon + (end.lon - start.lon) / 3.0 - (perpX * offsetHeight) / kLonDegToKm;
-            p2Lat = start.lat + 2.0 * (end.lat - start.lat) / 3.0 -
-                    (perpY * offsetHeight) / kLatDegToKm;
-            p2Lon = start.lon + 2.0 * (end.lon - start.lon) / 3.0 -
-                    (perpX * offsetHeight) / kLonDegToKm;
-            candidates.push_back({{{p1Lat, p1Lon}, {p2Lat, p2Lon}}, "Polygon"});
+            for (double side : {-1.0, 1.0}) {
+                double p1Lat = segmentStart.lat + (segmentEnd.lat - segmentStart.lat) / 3.0 +
+                               (side * perpY * offsetHeight) / kLatDegToKm;
+                double p1Lon = segmentStart.lon + (segmentEnd.lon - segmentStart.lon) / 3.0 +
+                               (side * perpX * offsetHeight) / kLonDegToKm;
+                double p2Lat = segmentStart.lat + 2.0 * (segmentEnd.lat - segmentStart.lat) / 3.0 +
+                               (side * perpY * offsetHeight) / kLatDegToKm;
+                double p2Lon = segmentStart.lon + 2.0 * (segmentEnd.lon - segmentStart.lon) / 3.0 +
+                               (side * perpX * offsetHeight) / kLonDegToKm;
+                
+                std::vector<Coordinate> candWps;
+                candWps.push_back({p1Lat, p1Lon});
+                candWps.push_back({p2Lat, p2Lon});
+                candWps.insert(candWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
+                candidates.push_back({candWps, "Polygon"});
+            }
         }
     }
 

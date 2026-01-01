@@ -21,7 +21,7 @@ interface UseRouteReturn {
   routeData: RouteResponse | null;
   loading: boolean;
   error: string | null;
-  generateRoute: () => Promise<void>;
+  generateRoute: (overridingWaypoints?: Waypoint[]) => Promise<void>;
   resetRoute: () => void;
 }
 
@@ -41,52 +41,58 @@ export const useRoute = ({
     setError(null);
   }, []);
 
-  const generateRoute = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setRouteData(null);
+  const generateRoute = useCallback(
+    async (overridingWaypoints?: Waypoint[]) => {
+      setLoading(true);
+      setError(null);
+      setRouteData(null);
 
-    const toastId = toast.loading(UI_TEXT.BUTTONS.SEARCHING);
+      const toastId = toast.loading(UI_TEXT.BUTTONS.SEARCHING);
+      const currentWaypoints = overridingWaypoints || waypoints;
 
-    try {
-      const response = await fetch(
-        `${APP_CONFIG.API.BASE_URL}${APP_CONFIG.API.ENDPOINTS.GENERATE_ROUTE}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            start_point: { lat: startPoint.lat, lon: startPoint.lng },
-            end_point: { lat: endPoint.lat, lon: endPoint.lng },
-            waypoints: waypoints.map((wp) => ({
-              lat: wp.location.lat,
-              lon: wp.location.lng,
-            })),
-            preferences: {
-              target_distance_km: targetDistance,
-              target_elevation_gain_m: targetElevation,
+      try {
+        const response = await fetch(
+          `${APP_CONFIG.API.BASE_URL}${APP_CONFIG.API.ENDPOINTS.GENERATE_ROUTE}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          }),
-        },
-      );
+            body: JSON.stringify({
+              start_point: { lat: startPoint.lat, lon: startPoint.lng },
+              end_point: { lat: endPoint.lat, lon: endPoint.lng },
+              waypoints: currentWaypoints.map((wp) => ({
+                lat: wp.location.lat,
+                lon: wp.location.lng,
+              })),
+              preferences: {
+                target_distance_km: targetDistance,
+                target_elevation_gain_m: targetElevation,
+              },
+            }),
+          },
+        );
 
-      if (!response.ok) {
-        throw new Error(UI_TEXT.MESSAGES.ROUTE_SEARCH_ERROR);
+        if (!response.ok) {
+          throw new Error(UI_TEXT.MESSAGES.ROUTE_SEARCH_ERROR);
+        }
+
+        const data = await response.json();
+        setRouteData(data);
+        toast.success(UI_TEXT.TITLES.ROUTE_RESULT, { id: toastId });
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : UI_TEXT.MESSAGES.UNEXPECTED_ERROR;
+        setError(errorMessage);
+        toast.error(errorMessage, { id: toastId });
+      } finally {
+        setLoading(false);
       }
-
-      const data = await response.json();
-      setRouteData(data);
-      toast.success(UI_TEXT.TITLES.ROUTE_RESULT, { id: toastId });
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : UI_TEXT.MESSAGES.UNEXPECTED_ERROR;
-      setError(errorMessage);
-      toast.error(errorMessage, { id: toastId });
-    } finally {
-      setLoading(false);
-    }
-  }, [startPoint, endPoint, waypoints, targetDistance, targetElevation]);
+    },
+    [startPoint, endPoint, waypoints, targetDistance, targetElevation],
+  );
 
   return {
     routeData,

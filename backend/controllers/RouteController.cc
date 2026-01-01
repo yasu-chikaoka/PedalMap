@@ -64,7 +64,13 @@ void Route::generate(const HttpRequestPtr &req,
 
     std::optional<services::RouteResult> bestRoute;
 
-    if (waypoints.empty() && targetDistanceKm > 0) {
+    double targetElevationM = 0.0;
+    if (jsonPtr->isMember("preferences") &&
+        (*jsonPtr)["preferences"].isMember("target_elevation_gain_m")) {
+        targetElevationM = (*jsonPtr)["preferences"]["target_elevation_gain_m"].asDouble();
+    }
+
+    if (targetDistanceKm > 0) {
         auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
             -> std::optional<services::RouteResult> {
             osrm::RouteParameters params =
@@ -76,16 +82,10 @@ void Route::generate(const HttpRequestPtr &req,
             return std::nullopt;
         };
 
-        double targetElevationM = 0.0;
-        if (jsonPtr->isMember("preferences") &&
-            (*jsonPtr)["preferences"].isMember("target_elevation_gain_m")) {
-            targetElevationM = (*jsonPtr)["preferences"]["target_elevation_gain_m"].asDouble();
-        }
-
-        bestRoute =
-            routeService_->findBestRoute(start, end, targetDistanceKm, targetElevationM, evaluator);
+        bestRoute = routeService_->findBestRoute(start, end, waypoints, targetDistanceKm,
+                                                 targetElevationM, evaluator);
     } else {
-        // Waypointsが指定されている、またはターゲット距離がない場合
+        // ターゲット距離がない場合（単純な経路検索）
         osrm::RouteParameters params =
             services::RouteService::buildRouteParameters(start, end, waypoints);
         osrm::json::Object osrmResult;
