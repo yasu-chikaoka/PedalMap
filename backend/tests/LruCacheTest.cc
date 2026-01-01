@@ -6,7 +6,7 @@
 namespace {
 
 TEST(LruCacheTest, InsertAndGet) {
-    utils::LruCache<std::string, int> cache(2);
+    cycling::cycling::utils::LruCache<std::string, int> cache(2);
     cache.put("a", 1);
     
     auto val = cache.get("a");
@@ -15,7 +15,7 @@ TEST(LruCacheTest, InsertAndGet) {
 }
 
 TEST(LruCacheTest, UpdateExisting) {
-    utils::LruCache<std::string, int> cache(2);
+    cycling::utils::LruCache<std::string, int> cache(2);
     cache.put("a", 1);
     cache.put("a", 2);
     
@@ -25,7 +25,7 @@ TEST(LruCacheTest, UpdateExisting) {
 }
 
 TEST(LruCacheTest, CapacityLimitEviction) {
-    utils::LruCache<std::string, int> cache(2);
+    cycling::utils::LruCache<std::string, int> cache(2);
     cache.put("a", 1);
     cache.put("b", 2);
     cache.put("c", 3); // "a" should be evicted
@@ -36,7 +36,7 @@ TEST(LruCacheTest, CapacityLimitEviction) {
 }
 
 TEST(LruCacheTest, AccessOrderUpdate) {
-    utils::LruCache<std::string, int> cache(2);
+    cycling::utils::LruCache<std::string, int> cache(2);
     cache.put("a", 1);
     cache.put("b", 2);
     
@@ -51,12 +51,12 @@ TEST(LruCacheTest, AccessOrderUpdate) {
 }
 
 TEST(LruCacheTest, EmptyGet) {
-    utils::LruCache<std::string, int> cache(2);
+    cycling::utils::LruCache<std::string, int> cache(2);
     EXPECT_FALSE(cache.get("non-existent").has_value());
 }
 
 TEST(LruCacheTest, ThreadSafety) {
-    utils::LruCache<int, int> cache(100);
+    cycling::utils::LruCache<int, int> cache(100);
     const int num_threads = 10;
     const int iterations = 1000;
     

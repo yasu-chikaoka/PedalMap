@@ -39,6 +39,11 @@ jobs:
   # Backend Jobs
   backend-test:
     runs-on: ubuntu-22.04
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: ./backend
@@ -60,7 +65,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang-tidy \
-            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
+            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev libhiredis-dev \
             libboost-all-dev libtbb-dev liblua5.3-dev libluabind-dev libstxxl-dev \
             libxml2-dev libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
             protobuf-compiler pkg-config

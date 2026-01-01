@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <thread>
+#include "../services/RouteService.h" // For Coordinate definition
 #include "../services/elevation/SmartRefreshService.h"
 #include "../services/elevation/IElevationCacheRepository.h"
 #include "../services/elevation/IElevationProvider.h"

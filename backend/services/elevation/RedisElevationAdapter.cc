@@ -11,14 +11,21 @@ std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, 
     std::string key = makeDataKey(z, x, y);
     
     try {
-        // HGETALL command
-        auto result = redisClient_->execCommandSync("HGETALL %s", key.c_str());
-        if (result.type() == drogon::nosql::RedisResultType::Map && !result.asMap().empty()) {
-            auto map = result.asMap();
+        auto result = redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "HGETALL %s", key.c_str());
+            
+        if (result.type() == drogon::nosql::RedisResultType::kArray && result.size() > 0) {
             ElevationCacheEntry entry;
-            entry.content = map.at("content").asString();
-            entry.updated_at = std::stoull(map.at("updated_at").asString());
-            return entry;
+            for (size_t i = 0; i < result.size(); i += 2) {
+                std::string field = result[i].asString();
+                if (field == "content") {
+                    entry.content = result[i+1].asString();
+                } else if (field == "updated_at") {
+                    entry.updated_at = std::stoull(result[i+1].asString());
+                }
+            }
+            if (!entry.content.empty()) return entry;
         }
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in getTile: " << e.what();
@@ -33,10 +40,15 @@ bool RedisElevationAdapter::saveTile(int z, int x, int y, const std::string& con
     
     try {
         // HSET command
-        redisClient_->execCommandSync("HSET %s content %s updated_at %llu", 
-                                      key.c_str(), content.c_str(), now);
+        redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "HSET %s content %s updated_at %llu", 
+            key.c_str(), content.c_str(), (unsigned long long)now);
+            
         // EXPIRE command (365 days)
-        redisClient_->execCommandSync("EXPIRE %s %d", key.c_str(), 365 * 24 * 60 * 60);
+        redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "EXPIRE %s %d", key.c_str(), 365 * 24 * 60 * 60);
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in saveTile: " << e.what();
@@ -51,7 +63,7 @@ void RedisElevationAdapter::incrementAccessScore(int z, int x, int y) {
     // ZINCRBY (Async is better for fire-and-forget stats)
     redisClient_->execCommandAsync(
         [](const drogon::nosql::RedisResult& r) {
-            if (r.type() == drogon::nosql::RedisResultType::Error) {
+            if (r.type() == drogon::nosql::RedisResultType::kError) {
                 LOG_ERROR << "Redis error in incrementAccessScore: " << r.asString();
             }
         },
@@ -76,8 +88,10 @@ void RedisElevationAdapter::addToRefreshQueue(int z, int x, int y) {
 std::optional<std::string> RedisElevationAdapter::popRefreshQueue() {
     try {
         // SPOP
-        auto result = redisClient_->execCommandSync("SPOP %s", refreshQueueKey_.c_str());
-        if (result.type() == drogon::nosql::RedisResultType::String) {
+        auto result = redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "SPOP %s", refreshQueueKey_.c_str());
+        if (result.type() == drogon::nosql::RedisResultType::kString) {
             return result.asString();
         }
     } catch (const std::exception& e) {
@@ -112,8 +126,10 @@ double RedisElevationAdapter::getAccessScore(int z, int x, int y) {
     std::string tileId = makeTileId(z, x, y);
     try {
         // ZSCORE
-        auto result = redisClient_->execCommandSync("ZSCORE %s %s", rankKey_.c_str(), tileId.c_str());
-        if (result.type() == drogon::nosql::RedisResultType::String) {
+        auto result = redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "ZSCORE %s %s", rankKey_.c_str(), tileId.c_str());
+        if (result.type() == drogon::nosql::RedisResultType::kString) {
             return std::stod(result.asString());
         }
     } catch (const std::exception& e) {

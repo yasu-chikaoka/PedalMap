@@ -5,7 +5,7 @@
 #include <optional>
 #include <unordered_map>
 
-namespace utils {
+namespace cycling::utils {
 
 /**
  * @brief Thread-safe Least Recently Used (LRU) Cache
@@ -106,4 +106,4 @@ class LruCache {
     std::unordered_map<K, typename std::list<std::pair<K, V>>::iterator> map_;
 };
 
-}  // namespace utils
+}  // namespace cycling::utils

@@ -6,6 +6,7 @@
 #include <thread>
 
 using namespace services::elevation;
+using namespace std::string_literals;
 
 class RedisIntegrationTest : public ::testing::Test {
 protected:
@@ -27,7 +28,9 @@ protected:
         bool connected = false;
         while(retries < 5 && !connected) {
             try {
-                redisClient_->execCommandSync("PING");
+                redisClient_->execCommandSync(
+                    [](const drogon::nosql::RedisResult& r) { return r; },
+                    "PING");
                 connected = true;
             } catch(...) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -42,7 +45,9 @@ protected:
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {
     try {
-        auto result = redisClient_->execCommandSync("PING");
+        auto result = redisClient_->execCommandSync(
+            [](const drogon::nosql::RedisResult& r) { return r; },
+            "PING");
         EXPECT_EQ(result.asString(), "PONG");
     } catch(const std::exception& e) {
         FAIL() << "Redis connection failed: " << e.what();

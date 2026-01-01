@@ -54,7 +54,7 @@ class ElevationCacheManager : public IElevationProvider {
     
     // L1 Cache: Stores parsed elevation data (vector<double>)
     // Key: "z:x:y"
-    utils::LruCache<std::string, std::shared_ptr<std::vector<double>>> l1Cache_;
+    ::cycling::utils::LruCache<std::string, std::shared_ptr<std::vector<double>>> l1Cache_;
 
     // Helper to parse CSV content
     std::shared_ptr<std::vector<double>> parseContent(const std::string& content);
