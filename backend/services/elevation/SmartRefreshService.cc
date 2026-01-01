@@ -98,48 +98,64 @@ void SmartRefreshService::workerLoop() {
 void SmartRefreshService::processRefreshQueue() {
     auto tileKeyOpt = repository_->popRefreshQueue();
     if (!tileKeyOpt) {
-        return; // Empty queue
+        return;
     }
     
     std::string tileKey = *tileKeyOpt;
-    // Key format: "z:x:y"
     int z, x, y;
     if (sscanf(tileKey.c_str(), "%d:%d:%d", &z, &x, &y) != 3) {
         LOG_ERROR << "Invalid tile key in refresh queue: " << tileKey;
         return;
     }
     
-    LOG_INFO << "Refeshing tile: " << tileKey;
+    LOG_INFO << "Refreshing tile: " << tileKey;
     
-    // Fetch from API
     auto gsiProvider = std::dynamic_pointer_cast<GSIElevationProvider>(provider_);
     if (!gsiProvider) return;
     
-    // We need to wait for the fetch to complete to control rate limit properly in this thread.
-    std::promise<void> promise;
-    auto future = promise.get_future();
-    
-    gsiProvider->fetchTile(z, x, y, 
-        [this, z, x, y, &promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
-            if (data) {
-                // Save to Redis (Refresh TTL)
-                std::stringstream ss;
-                for (size_t i = 0; i < data->elevations.size(); ++i) {
-                   ss << data->elevations[i];
-                   if ((i + 1) % 256 == 0) ss << "\n";
-                   else ss << ",";
-                }
-                repository_->saveTile(z, x, y, ss.str());
-                LOG_DEBUG << "Tile refreshed: " << z << "/" << x << "/" << y;
-            } else {
-                LOG_WARN << "Failed to refresh tile: " << z << "/" << x << "/" << y;
-            }
-            promise.set_value();
-        });
+    int retryCount = 0;
+    const int maxRetries = 3;
+    int baseDelayMs = 1000;
+    bool success = false;
+
+    while (retryCount <= maxRetries && !success) {
+        if (retryCount > 0) {
+            int delay = baseDelayMs * std::pow(2, retryCount - 1);
+            LOG_INFO << "Retrying tile refresh (" << retryCount << "/" << maxRetries << ") after " << delay << "ms: " << tileKey;
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+        }
+
+        std::promise<bool> promise;
+        auto future = promise.get_future();
         
-    // Wait for API call to finish
-    if (future.wait_for(std::chrono::seconds(10)) != std::future_status::ready) {
-        LOG_ERROR << "Timeout refreshing tile: " << tileKey;
+        gsiProvider->fetchTile(z, x, y, 
+            [this, z, x, y, &promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
+                if (data) {
+                    std::stringstream ss;
+                    for (size_t i = 0; i < data->elevations.size(); ++i) {
+                       ss << data->elevations[i];
+                       if ((i + 1) % 256 == 0) ss << "\n";
+                       else ss << ",";
+                    }
+                    repository_->saveTile(z, x, y, ss.str());
+                    promise.set_value(true);
+                } else {
+                    promise.set_value(false);
+                }
+            });
+            
+        if (future.wait_for(std::chrono::seconds(10)) == std::future_status::ready) {
+            success = future.get();
+        } else {
+            LOG_WARN << "Timeout during tile fetch for refresh: " << tileKey;
+        }
+        retryCount++;
+    }
+
+    if (success) {
+        LOG_DEBUG << "Tile refreshed successfully: " << tileKey;
+    } else {
+        LOG_ERROR << "Failed to refresh tile after retries: " << tileKey;
     }
 }
 

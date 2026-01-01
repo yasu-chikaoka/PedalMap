@@ -62,6 +62,10 @@ class ElevationCacheManager : public IElevationProvider {
     // Helper to generate cache key
     std::string makeKey(int z, int x, int y) const;
 
+    // Cache Stampede protection (Thundering Herd)
+    std::mutex inFlightMutex_;
+    std::unordered_map<std::string, std::shared_future<std::shared_ptr<std::vector<double>>>> inFlightRequests_;
+
     // Helper to calculate tile coord (Shared logic)
     struct TileCoord {
         int z;

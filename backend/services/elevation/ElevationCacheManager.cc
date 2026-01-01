@@ -85,77 +85,64 @@ std::shared_ptr<std::vector<double>> ElevationCacheManager::getTile(int z, int x
     if (l2Result.has_value()) {
         auto elevations = parseContent(l2Result->content);
         if (elevations) {
-            // Populate L1
             l1Cache_.put(key, elevations);
-            
-            // Async Refresh Check
             if (refreshService_) {
                 refreshService_->recordAccess(z, x, y);
                 refreshService_->checkAndQueueRefresh(z, x, y, l2Result->updated_at);
             }
-            
             return elevations;
         }
     }
 
-    // 3. API Fetch (Fallback)
-    LOG_DEBUG << "Cache Miss: " << key << " -> Fetching from API";
-    
-    auto gsiProvider = std::dynamic_pointer_cast<GSIElevationProvider>(backendProvider_);
-    if (!gsiProvider) {
-        LOG_ERROR << "Backend provider is not GSIElevationProvider";
-        return nullptr;
+    // 3. API Fetch with Cache Stampede Protection
+    std::shared_future<std::shared_ptr<std::vector<double>>> future;
+    {
+        std::lock_guard<std::mutex> lock(inFlightMutex_);
+        auto it = inFlightRequests_.find(key);
+        if (it != inFlightRequests_.end()) {
+            future = it->second;
+        } else {
+            // Start new request
+            std::promise<std::shared_ptr<std::vector<double>>> promise;
+            future = promise.get_future().share();
+            inFlightRequests_[key] = future;
+
+            LOG_DEBUG << "Cache Miss: " << key << " -> Fetching from API";
+            auto gsiProvider = std::dynamic_pointer_cast<GSIElevationProvider>(backendProvider_);
+            if (!gsiProvider) {
+                LOG_ERROR << "Backend provider is not GSIElevationProvider";
+                promise.set_value(nullptr);
+            } else {
+                gsiProvider->fetchTile(z, x, y, 
+                    [this, z, x, y, key, p = std::move(promise)](std::shared_ptr<GSIElevationProvider::TileData> data) mutable {
+                        std::shared_ptr<std::vector<double>> elevations = nullptr;
+                        if (data) {
+                            elevations = std::make_shared<std::vector<double>>(data->elevations);
+                            l1Cache_.put(key, elevations);
+                            
+                            // Save to L2
+                            std::stringstream ss;
+                            for (size_t i = 0; i < elevations->size(); ++i) {
+                               ss << (*elevations)[i];
+                               if ((i + 1) % 256 == 0) ss << "\n";
+                               else ss << ",";
+                            }
+                            repository_->saveTile(z, x, y, ss.str());
+                        }
+                        p.set_value(elevations);
+                        
+                        // Cleanup in-flight
+                        {
+                            std::lock_guard<std::mutex> lock(inFlightMutex_);
+                            inFlightRequests_.erase(key);
+                        }
+                    });
+            }
+        }
     }
 
-    // Use promise/future to wait for async callback
-    std::promise<std::shared_ptr<std::vector<double>>> promise;
-    auto future = promise.get_future();
-
-    gsiProvider->fetchTile(z, x, y, 
-        [this, z, x, y, &promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
-            if (data) {
-                auto elevations = std::make_shared<std::vector<double>>(data->elevations);
-                promise.set_value(elevations);
-                
-                // Save to L1
-                std::string key = makeKey(z, x, y);
-                l1Cache_.put(key, elevations);
-
-                // Save to L2 (Convert back to CSV string for storage? Or raw text?)
-                // Since we don't have the original raw text here easily unless we change fetchTile to return it.
-                // Re-serializing is costly.
-                // For now, let's skip saving to L2 here OR update fetchTile to return raw text too.
-                // To minimize changes, let's assume we skip L2 save on Miss for a moment or implement serialization.
-                
-                // Proper way: fetchTile should return raw text or we reconstruct it.
-                // Reconstructing 256x256 CSV is heavy.
-                // Better approach: GSIElevationProvider should cache raw text in L2 if configured?
-                // Or ElevationCacheManager should handle fetching directly.
-                
-                // Let's implement simple serialization for now to satisfy requirements.
-                std::stringstream ss;
-                for (size_t i = 0; i < elevations->size(); ++i) {
-                   ss << (*elevations)[i];
-                   if ((i + 1) % 256 == 0) ss << "\n";
-                   else ss << ",";
-                }
-                repository_->saveTile(z, x, y, ss.str());
-                
-            } else {
-                promise.set_value(nullptr);
-            }
-        });
-
-    // Wait for the result (Blocking!)
-    // Warning: Blocking the event loop is bad in Drogon.
-    // However, this getTile is called from getElevationSync or internal logic.
-    // If called from async getElevation, we are blocking the thread.
-    // Since we are in the middle of refactoring, this is acceptable for Phase 2 strict adherence to plan?
-    // The plan says "GSIElevationProvider is responsible for data fetch".
-    // Ideally, getTile should be async. But we defined it as returning shared_ptr directly.
-    
-    // For now, wait with timeout.
-    if (future.wait_for(std::chrono::seconds(5)) == std::future_status::ready) {
+    // Wait for the shared future
+    if (future.wait_for(std::chrono::seconds(10)) == std::future_status::ready) {
         return future.get();
     }
 
