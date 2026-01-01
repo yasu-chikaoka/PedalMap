@@ -1,20 +1,22 @@
 #include "ElevationCacheManager.h"
-#include "SmartRefreshService.h"
-#include "GSIElevationProvider.h" // Include for dynamic_pointer_cast
-#include <sstream>
+
+#include <drogon/drogon.h>
+
 #include <chrono>
 #include <cmath>
-#include <numbers>
 #include <future>
-#include <drogon/drogon.h>
+#include <numbers>
+#include <sstream>
+
+#include "GSIElevationProvider.h"  // Include for dynamic_pointer_cast
+#include "SmartRefreshService.h"
 
 namespace services::elevation {
 
-ElevationCacheManager::ElevationCacheManager(
-    std::shared_ptr<IElevationCacheRepository> repository,
-    std::shared_ptr<IElevationProvider> backendProvider,
-    std::shared_ptr<SmartRefreshService> refreshService,
-    size_t lruCapacity)
+ElevationCacheManager::ElevationCacheManager(std::shared_ptr<IElevationCacheRepository> repository,
+                                             std::shared_ptr<IElevationProvider> backendProvider,
+                                             std::shared_ptr<SmartRefreshService> refreshService,
+                                             size_t lruCapacity)
     : repository_(std::move(repository)),
       backendProvider_(std::move(backendProvider)),
       refreshService_(std::move(refreshService)),
@@ -23,7 +25,7 @@ ElevationCacheManager::ElevationCacheManager(
 void ElevationCacheManager::getElevation(const Coordinate& coord, ElevationCallback&& callback) {
     auto tc = calculateTileCoord(coord);
     auto tileData = getTile(tc.z, tc.x, tc.y);
-    
+
     if (tileData && !tileData->empty()) {
         double elevation = (*tileData)[tc.pixel_y * 256 + tc.pixel_x];
         callback(elevation);
@@ -42,13 +44,13 @@ void ElevationCacheManager::getElevations(const std::vector<Coordinate>& coords,
 
     auto results = std::make_shared<std::vector<double>>(coords.size(), 0.0);
     // Note: This is synchronous/blocking in getTile, but we are inside drogon loop usually.
-    // Ideally getTile should be async. But for now we proceed with synchronous cache/async fetch approach
-    // wrapped in synchronous looking method for getTile, but wait...
-    
+    // Ideally getTile should be async. But for now we proceed with synchronous cache/async fetch
+    // approach wrapped in synchronous looking method for getTile, but wait...
+
     // If getTile fetches from API using GSI provider async fetch, we need to wait.
     // But getTile implementation below blocks?
     // We need to implement getTile carefully.
-    
+
     for (size_t i = 0; i < coords.size(); ++i) {
         auto tc = calculateTileCoord(coords[i]);
         auto tileData = getTile(tc.z, tc.x, tc.y);
@@ -56,14 +58,14 @@ void ElevationCacheManager::getElevations(const std::vector<Coordinate>& coords,
             (*results)[i] = (*tileData)[tc.pixel_y * 256 + tc.pixel_x];
         }
     }
-    
+
     callback(*results);
 }
 
 std::optional<double> ElevationCacheManager::getElevationSync(const Coordinate& coord) {
     auto tc = calculateTileCoord(coord);
     auto tileData = getTile(tc.z, tc.x, tc.y);
-    
+
     if (tileData && !tileData->empty()) {
         return (*tileData)[tc.pixel_y * 256 + tc.pixel_x];
     }
@@ -113,24 +115,28 @@ std::shared_ptr<std::vector<double>> ElevationCacheManager::getTile(int z, int x
                 LOG_ERROR << "Backend provider is not GSIElevationProvider";
                 promise->set_value(nullptr);
             } else {
-                gsiProvider->fetchTile(z, x, y, 
-                    [this, z, x, y, key, promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
+                gsiProvider->fetchTile(
+                    z, x, y,
+                    [this, z, x, y, key,
+                     promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
                         std::shared_ptr<std::vector<double>> elevations = nullptr;
                         if (data) {
                             elevations = std::make_shared<std::vector<double>>(data->elevations);
                             l1Cache_.put(key, elevations);
-                            
+
                             // Save to L2
                             std::stringstream ss;
                             for (size_t i = 0; i < elevations->size(); ++i) {
-                               ss << (*elevations)[i];
-                               if ((i + 1) % 256 == 0) ss << "\n";
-                               else ss << ",";
+                                ss << (*elevations)[i];
+                                if ((i + 1) % 256 == 0)
+                                    ss << "\n";
+                                else
+                                    ss << ",";
                             }
                             repository_->saveTile(z, x, y, ss.str());
                         }
                         promise->set_value(elevations);
-                        
+
                         // Cleanup in-flight
                         {
                             std::lock_guard<std::mutex> lock(inFlightMutex_);
@@ -149,7 +155,8 @@ std::shared_ptr<std::vector<double>> ElevationCacheManager::getTile(int z, int x
     return nullptr;
 }
 
-std::shared_ptr<std::vector<double>> ElevationCacheManager::parseContent(const std::string& content) {
+std::shared_ptr<std::vector<double>> ElevationCacheManager::parseContent(
+    const std::string& content) {
     auto elevations = std::make_shared<std::vector<double>>();
     elevations->reserve(256 * 256);
 
@@ -183,12 +190,13 @@ std::string ElevationCacheManager::makeKey(int z, int x, int y) const {
     return std::to_string(z) + ":" + std::to_string(x) + ":" + std::to_string(y);
 }
 
-ElevationCacheManager::TileCoord ElevationCacheManager::calculateTileCoord(const Coordinate& coord, int zoom) {
+ElevationCacheManager::TileCoord ElevationCacheManager::calculateTileCoord(const Coordinate& coord,
+                                                                           int zoom) {
     // Re-use logic from GSIElevationProvider or implement here.
-    // Since we made it static in GSIElevationProvider header (but need to link), 
+    // Since we made it static in GSIElevationProvider header (but need to link),
     // we can call GSIElevationProvider::calculateTileCoord if we include the header.
     // But TileCoord struct needs to be compatible.
-    
+
     auto tc = GSIElevationProvider::calculateTileCoord(coord, zoom);
     TileCoord myTc;
     myTc.z = tc.z;

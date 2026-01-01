@@ -23,7 +23,7 @@ class IElevationCacheRepository {
 
     /**
      * @brief Get elevation data from cache
-     * 
+     *
      * @param z zoom
      * @param x tile x
      * @param y tile y
@@ -33,7 +33,7 @@ class IElevationCacheRepository {
 
     /**
      * @brief Save elevation data to cache
-     * 
+     *
      * @param z zoom
      * @param x tile x
      * @param y tile y
@@ -44,7 +44,7 @@ class IElevationCacheRepository {
 
     /**
      * @brief Increment access score for a tile
-     * 
+     *
      * @param z zoom
      * @param x tile x
      * @param y tile y
@@ -53,7 +53,7 @@ class IElevationCacheRepository {
 
     /**
      * @brief Add tile to refresh queue
-     * 
+     *
      * @param z zoom
      * @param x tile x
      * @param y tile y
@@ -62,21 +62,21 @@ class IElevationCacheRepository {
 
     /**
      * @brief Pop a tile from refresh queue
-     * 
+     *
      * @return std::optional<std::string> tile key "z:x:y"
      */
     virtual std::optional<std::string> popRefreshQueue() = 0;
 
     /**
      * @brief Apply decay factor to all access scores
-     * 
+     *
      * @param factor 0.0 to 1.0
      */
     virtual void decayScores(double factor) = 0;
 
     /**
      * @brief Get access score for a tile
-     * 
+     *
      * @param z zoom
      * @param x tile x
      * @param y tile y

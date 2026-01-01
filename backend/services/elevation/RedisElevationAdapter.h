@@ -1,11 +1,13 @@
 #pragma once
 
 #include <drogon/nosql/RedisClient.h>
+
 #include "IElevationCacheRepository.h"
 
 namespace services::elevation {
 
-class RedisElevationAdapter : public IElevationCacheRepository, public std::enable_shared_from_this<RedisElevationAdapter> {
+class RedisElevationAdapter : public IElevationCacheRepository,
+                              public std::enable_shared_from_this<RedisElevationAdapter> {
    public:
     explicit RedisElevationAdapter(drogon::nosql::RedisClientPtr redisClient);
     ~RedisElevationAdapter() override = default;
@@ -21,7 +23,7 @@ class RedisElevationAdapter : public IElevationCacheRepository, public std::enab
    private:
     std::string makeDataKey(int z, int x, int y) const;
     std::string makeTileId(int z, int x, int y) const;
-    
+
     drogon::nosql::RedisClientPtr redisClient_;
     const std::string rankKey_ = "cycling:elevation:v1:stats:rank";
     const std::string refreshQueueKey_ = "cycling:elevation:v1:queue:refresh";

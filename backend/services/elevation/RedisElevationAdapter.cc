@@ -1,6 +1,8 @@
 #include "RedisElevationAdapter.h"
-#include <chrono>
+
 #include <drogon/utils/Utilities.h>
+
+#include <chrono>
 
 namespace services::elevation {
 
@@ -9,13 +11,12 @@ RedisElevationAdapter::RedisElevationAdapter(drogon::nosql::RedisClientPtr redis
 
 std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, int y) {
     std::string key = makeDataKey(z, x, y);
-    
+
     try {
         // HGETALL command
         auto result = redisClient_->execCommandSync(
-            [](const drogon::nosql::RedisResult& r) { return r; },
-            "HGETALL %s", key.c_str());
-            
+            [](const drogon::nosql::RedisResult& r) { return r; }, "HGETALL %s", key.c_str());
+
         if (result.type() == drogon::nosql::RedisResultType::kArray) {
             auto arr = result.asArray();
             if (!arr.empty()) {
@@ -23,9 +24,9 @@ std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, 
                 for (size_t i = 0; i < arr.size(); i += 2) {
                     std::string field = arr[i].asString();
                     if (field == "content") {
-                        entry.content = arr[i+1].asString();
+                        entry.content = arr[i + 1].asString();
                     } else if (field == "updated_at") {
-                        entry.updated_at = std::stoull(arr[i+1].asString());
+                        entry.updated_at = std::stoull(arr[i + 1].asString());
                     }
                 }
                 if (!entry.content.empty()) return entry;
@@ -34,36 +35,34 @@ std::optional<ElevationCacheEntry> RedisElevationAdapter::getTile(int z, int x, 
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in getTile: " << e.what();
     }
-    
+
     return std::nullopt;
 }
 
 bool RedisElevationAdapter::saveTile(int z, int x, int y, const std::string& content) {
     std::string key = makeDataKey(z, x, y);
     uint64_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    
+
     try {
         // HSET command
-        redisClient_->execCommandSync(
-            [](const drogon::nosql::RedisResult& r) { return r; },
-            "HSET %s content %s updated_at %llu", 
-            key.c_str(), content.c_str(), (unsigned long long)now);
-            
+        redisClient_->execCommandSync([](const drogon::nosql::RedisResult& r) { return r; },
+                                      "HSET %s content %s updated_at %llu", key.c_str(),
+                                      content.c_str(), (unsigned long long)now);
+
         // EXPIRE command (365 days)
-        redisClient_->execCommandSync(
-            [](const drogon::nosql::RedisResult& r) { return r; },
-            "EXPIRE %s %d", key.c_str(), 365 * 24 * 60 * 60);
+        redisClient_->execCommandSync([](const drogon::nosql::RedisResult& r) { return r; },
+                                      "EXPIRE %s %d", key.c_str(), 365 * 24 * 60 * 60);
         return true;
     } catch (const std::exception& e) {
         LOG_ERROR << "Redis error in saveTile: " << e.what();
     }
-    
+
     return false;
 }
 
 void RedisElevationAdapter::incrementAccessScore(int z, int x, int y) {
     std::string tileId = makeTileId(z, x, y);
-    
+
     // ZINCRBY (Async is better for fire-and-forget stats)
     redisClient_->execCommandAsync(
         [](const drogon::nosql::RedisResult& r) {
@@ -79,22 +78,22 @@ void RedisElevationAdapter::incrementAccessScore(int z, int x, int y) {
 
 void RedisElevationAdapter::addToRefreshQueue(int z, int x, int y) {
     std::string tileId = makeTileId(z, x, y);
-    
+
     // SADD
-    redisClient_->execCommandAsync(
-        [](const drogon::nosql::RedisResult& r) {},
-        [](const std::exception& e) {
-            LOG_ERROR << "Redis error in addToRefreshQueue: " << e.what();
-        },
-        "SADD %s %s", refreshQueueKey_.c_str(), tileId.c_str());
+    redisClient_->execCommandAsync([](const drogon::nosql::RedisResult& r) {},
+                                   [](const std::exception& e) {
+                                       LOG_ERROR << "Redis error in addToRefreshQueue: "
+                                                 << e.what();
+                                   },
+                                   "SADD %s %s", refreshQueueKey_.c_str(), tileId.c_str());
 }
 
 std::optional<std::string> RedisElevationAdapter::popRefreshQueue() {
     try {
         // SPOP
-        auto result = redisClient_->execCommandSync(
-            [](const drogon::nosql::RedisResult& r) { return r; },
-            "SPOP %s", refreshQueueKey_.c_str());
+        auto result =
+            redisClient_->execCommandSync([](const drogon::nosql::RedisResult& r) { return r; },
+                                          "SPOP %s", refreshQueueKey_.c_str());
         if (result.type() == drogon::nosql::RedisResultType::kString) {
             return result.asString();
         }
@@ -118,20 +117,20 @@ void RedisElevationAdapter::scanStep(const std::string& cursor, double factor) {
                 if (arr.size() >= 2) {
                     std::string nextCursor = arr[0].asString();
                     auto elements = arr[1];
-                    
+
                     if (elements.type() == drogon::nosql::RedisResultType::kArray) {
                         auto elArr = elements.asArray();
                         for (size_t i = 0; i < elArr.size(); i += 2) {
                             if (i + 1 >= elArr.size()) break;
                             std::string member = elArr[i].asString();
-                            double score = std::stod(elArr[i+1].asString());
-                            
+                            double score = std::stod(elArr[i + 1].asString());
+
                             self->redisClient_->execCommandAsync(
-                                [](const auto&){}, [](const auto&){},
-                                "ZADD %s %f %s", self->rankKey_.c_str(), score * factor, member.c_str());
+                                [](const auto&) {}, [](const auto&) {}, "ZADD %s %f %s",
+                                self->rankKey_.c_str(), score * factor, member.c_str());
                         }
                     }
-                    
+
                     if (nextCursor != "0") {
                         self->scanStep(nextCursor, factor);
                     } else {
@@ -150,9 +149,9 @@ double RedisElevationAdapter::getAccessScore(int z, int x, int y) {
     std::string tileId = makeTileId(z, x, y);
     try {
         // ZSCORE
-        auto result = redisClient_->execCommandSync(
-            [](const drogon::nosql::RedisResult& r) { return r; },
-            "ZSCORE %s %s", rankKey_.c_str(), tileId.c_str());
+        auto result =
+            redisClient_->execCommandSync([](const drogon::nosql::RedisResult& r) { return r; },
+                                          "ZSCORE %s %s", rankKey_.c_str(), tileId.c_str());
         if (result.type() == drogon::nosql::RedisResultType::kString) {
             return std::stod(result.asString());
         }
@@ -163,7 +162,8 @@ double RedisElevationAdapter::getAccessScore(int z, int x, int y) {
 }
 
 std::string RedisElevationAdapter::makeDataKey(int z, int x, int y) const {
-    return "cycling:elevation:v1:data:" + std::to_string(z) + ":" + std::to_string(x) + ":" + std::to_string(y);
+    return "cycling:elevation:v1:data:" + std::to_string(z) + ":" + std::to_string(x) + ":" +
+           std::to_string(y);
 }
 
 std::string RedisElevationAdapter::makeTileId(int z, int x, int y) const {

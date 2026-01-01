@@ -19,9 +19,8 @@ class ElevationCacheManager;
  */
 class SmartRefreshService {
    public:
-    SmartRefreshService(
-        std::shared_ptr<IElevationCacheRepository> repository,
-        std::shared_ptr<IElevationProvider> provider);
+    SmartRefreshService(std::shared_ptr<IElevationCacheRepository> repository,
+                        std::shared_ptr<IElevationProvider> provider);
     virtual ~SmartRefreshService();
 
     // Lifecycle
