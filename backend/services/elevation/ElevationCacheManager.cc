@@ -102,19 +102,19 @@ std::shared_ptr<std::vector<double>> ElevationCacheManager::getTile(int z, int x
         if (it != inFlightRequests_.end()) {
             future = it->second;
         } else {
-            // Start new request
-            std::promise<std::shared_ptr<std::vector<double>>> promise;
-            future = promise.get_future().share();
+            // Start new request using a shared pointer to promise to satisfy copyability
+            auto promise = std::make_shared<std::promise<std::shared_ptr<std::vector<double>>>>();
+            future = promise->get_future().share();
             inFlightRequests_[key] = future;
 
             LOG_DEBUG << "Cache Miss: " << key << " -> Fetching from API";
             auto gsiProvider = std::dynamic_pointer_cast<GSIElevationProvider>(backendProvider_);
             if (!gsiProvider) {
                 LOG_ERROR << "Backend provider is not GSIElevationProvider";
-                promise.set_value(nullptr);
+                promise->set_value(nullptr);
             } else {
                 gsiProvider->fetchTile(z, x, y, 
-                    [this, z, x, y, key, p = std::move(promise)](std::shared_ptr<GSIElevationProvider::TileData> data) mutable {
+                    [this, z, x, y, key, promise](std::shared_ptr<GSIElevationProvider::TileData> data) {
                         std::shared_ptr<std::vector<double>> elevations = nullptr;
                         if (data) {
                             elevations = std::make_shared<std::vector<double>>(data->elevations);
@@ -129,7 +129,7 @@ std::shared_ptr<std::vector<double>> ElevationCacheManager::getTile(int z, int x
                             }
                             repository_->saveTile(z, x, y, ss.str());
                         }
-                        p.set_value(elevations);
+                        promise->set_value(elevations);
                         
                         // Cleanup in-flight
                         {
