@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     uuid-dev \
     zlib1g-dev \
     libssl-dev \
+    libhiredis-dev \
     curl \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
