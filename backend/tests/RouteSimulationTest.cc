@@ -125,7 +125,7 @@ TEST_F(RouteSimulationTest, CompareAlgorithms) {
                 return res;
             };
 
-            auto bestRoute = service.findBestRoute(start, end, targetDist, 0, evaluator);
+            auto bestRoute = service.findBestRoute(start, end, {}, targetDist, 0, evaluator);
 
             std::string resultStr = "N/A";
             double resultDist = 0.0;

@@ -71,9 +71,10 @@ class MockRouteService : public RouteService {
         return res;
     }
     std::optional<RouteResult> findBestRoute(const Coordinate& start, const Coordinate& end,
+                                             const std::vector<Coordinate>& fixedWaypoints,
                                              double targetDistanceKm, double targetElevationM,
                                              const RouteEvaluator& evaluator) override {
-        return evaluator({});  // 簡単のため空のwaypointsで評価
+        return evaluator(fixedWaypoints);
     }
 };
 
