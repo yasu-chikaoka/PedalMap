@@ -5,7 +5,7 @@
 
 namespace services::elevation {
 
-class RedisElevationAdapter : public IElevationCacheRepository {
+class RedisElevationAdapter : public IElevationCacheRepository, public std::enable_shared_from_this<RedisElevationAdapter> {
    public:
     explicit RedisElevationAdapter(drogon::nosql::RedisClientPtr redisClient);
     ~RedisElevationAdapter() override = default;
@@ -25,6 +25,8 @@ class RedisElevationAdapter : public IElevationCacheRepository {
     drogon::nosql::RedisClientPtr redisClient_;
     const std::string rankKey_ = "cycling:elevation:v1:stats:rank";
     const std::string refreshQueueKey_ = "cycling:elevation:v1:queue:refresh";
+
+    void scanStep(const std::string& cursor, double factor);
 };
 
 }  // namespace services::elevation
