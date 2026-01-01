@@ -179,12 +179,9 @@ std::vector<Coordinate> RouteService::calculatePolygonDetourPoints(const Coordin
     return result;
 }
 
-std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
-                                                       const Coordinate& end,
-                                                       const std::vector<Coordinate>& fixedWaypoints,
-                                                       double targetDistanceKm,
-                                                       double targetElevationM,
-                                                       const RouteEvaluator& evaluator) {
+std::optional<RouteResult> RouteService::findBestRoute(
+    const Coordinate& start, const Coordinate& end, const std::vector<Coordinate>& fixedWaypoints,
+    double targetDistanceKm, double targetElevationM, const RouteEvaluator& evaluator) {
     if (targetDistanceKm <= 0) return std::nullopt;
 
     double straightDist;
@@ -257,14 +254,14 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
     for (double factor : expansionFactors) {
         double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)  // 周回時の調整
                                              : (targetDistanceKm - straightDist) * 0.5 * factor;
-        
+
         if (currentHeight <= 0) continue;
 
         // 幾何学的計算による迂回点 (Single Point)
         for (double side : {-1.0, 1.0}) {
             double viaLat = midLat + (side * perpY * currentHeight) / kLatDegToKm;
             double viaLon = midLon + (side * perpX * currentHeight) / kLonDegToKm;
-            
+
             std::vector<Coordinate> candWps;
             candWps.push_back({viaLat, viaLon});
             candWps.insert(candWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
@@ -283,7 +280,7 @@ std::optional<RouteResult> RouteService::findBestRoute(const Coordinate& start,
                                (side * perpY * offsetHeight) / kLatDegToKm;
                 double p2Lon = segmentStart.lon + 2.0 * (segmentEnd.lon - segmentStart.lon) / 3.0 +
                                (side * perpX * offsetHeight) / kLonDegToKm;
-                
+
                 std::vector<Coordinate> candWps;
                 candWps.push_back({p1Lat, p1Lon});
                 candWps.push_back({p2Lat, p2Lon});
