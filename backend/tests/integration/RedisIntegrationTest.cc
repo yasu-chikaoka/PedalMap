@@ -33,9 +33,10 @@ class RedisIntegrationTest : public ::testing::Test {
             // Try to create it if it doesn't exist (fallback)
             const std::string host =
                 std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
-            const int port = std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
-             drogon::app().createRedisClient(host, port);
-             redisClient_ = drogon::app().getRedisClient();
+            const int port =
+                std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
+            drogon::app().createRedisClient(host, port);
+            redisClient_ = drogon::app().getRedisClient();
         }
 
         ASSERT_TRUE(redisClient_) << "Redis client is null. Did SetUpTestSuite run?";
