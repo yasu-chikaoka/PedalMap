@@ -56,6 +56,8 @@ if(NOT BUILD_TESTS_ONLY)
         services/SpotService.cc
         services/elevation/GSIElevationProvider.cc
         services/elevation/RedisElevationAdapter.cc
+        services/elevation/ElevationCacheManager.cc
+        services/elevation/SmartRefreshService.cc
         utils/PolylineDecoder.cc
     )
 
@@ -91,6 +93,8 @@ add_executable(
   services/SpotService.cc
   services/elevation/GSIElevationProvider.cc
   services/elevation/RedisElevationAdapter.cc
+  services/elevation/ElevationCacheManager.cc
+  services/elevation/SmartRefreshService.cc
   utils/PolylineDecoder.cc
   controllers/RouteController.cc
 )
