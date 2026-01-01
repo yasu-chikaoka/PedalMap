@@ -264,6 +264,13 @@ export const ControlPanel = ({
               </>
             )}
           </button>
+
+          <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+            <p className="text-xs text-blue-800 leading-relaxed">
+              <span className="font-bold">💡 ヒント:</span>{' '}
+              日本国内のサイクリングに特化した地形データを学習中！たくさん検索するとデータが蓄積され、次回からよりスムーズになります。
+            </p>
+          </div>
         </div>
 
         {error && (

@@ -13,6 +13,10 @@ int main() {
     // HTTPリスナーのアドレスとポートを設定
     drogon::app().addListener("0.0.0.0", kPort);
 
+    // Redisクライアントを初期化
+    drogon::app().createRedisClient(config.getRedisHost(), config.getRedisPort(),
+                                    config.getRedisPassword());
+
     // ログ出力を有効化
     drogon::app().setLogLevel(trantor::Logger::kDebug);
 

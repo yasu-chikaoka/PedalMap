@@ -13,6 +13,8 @@ using namespace drogon;
 // Mock SpotService
 class MockSpotService : public SpotService {
    public:
+    // SpotServiceのコンストラクタは ConfigService& を取るため、
+    // ここではダミーの ConfigService を渡して初期化する
     MockSpotService(const ConfigService& config) : SpotService(config) {}
 
     std::vector<Spot> searchSpotsAlongRoute(const std::string& polyline, double radius) override {
@@ -24,6 +26,8 @@ class MockSpotService : public SpotService {
 // Mock OSRMClient
 class MockOSRMClient : public OSRMClient {
    public:
+    // OSRMClientのコンストラクタは ConfigService& を取るため、
+    // ここではダミーの ConfigService を渡して初期化する
     MockOSRMClient(const ConfigService& config) : OSRMClient(config) {}
 
     osrm::Status Route(const osrm::RouteParameters& params,
@@ -82,6 +86,7 @@ class RouteControllerTest : public ::testing::Test {
    protected:
     void SetUp() override {
         configService = std::make_shared<ConfigService>();
+        // ConfigServiceの参照を渡す
         mockSpotService = std::make_shared<MockSpotService>(*configService);
         mockOSRMClient = std::make_shared<MockOSRMClient>(*configService);
         mockRouteService = std::make_shared<MockRouteService>();

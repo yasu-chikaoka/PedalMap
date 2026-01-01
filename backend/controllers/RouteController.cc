@@ -9,7 +9,10 @@
 #include <osrm/status.hpp>
 #include <osrm/table_parameters.hpp>
 
+#include "services/elevation/ElevationCacheManager.h"
 #include "services/elevation/GSIElevationProvider.h"
+#include "services/elevation/RedisElevationAdapter.h"
+#include "services/elevation/SmartRefreshService.h"
 
 namespace api::v1 {
 
@@ -17,10 +20,31 @@ Route::Route()
     : configService_(std::make_shared<services::ConfigService>()),
       osrmClient_(std::make_shared<services::OSRMClient>(*configService_)),
       spotService_(std::make_shared<services::SpotService>(*configService_)) {
-    // 標高プロバイダーの初期化
-    auto elevationProvider = std::make_shared<services::elevation::GSIElevationProvider>();
-    // RouteServiceの初期化と依存注入
-    routeService_ = std::make_shared<services::RouteService>(elevationProvider);
+    // 標高サービスの初期化 (Cache Layering)
+    auto backendProvider = std::make_shared<services::elevation::GSIElevationProvider>();
+
+    // Redis Client (Drogon global client)
+    // Note: createRedisClient was called in main.cc. We can retrieve it via app().getRedisClient().
+    auto redisClient = drogon::app().getRedisClient();
+    if (redisClient) {
+        auto repository = std::make_shared<services::elevation::RedisElevationAdapter>(redisClient);
+
+        auto refreshService =
+            std::make_shared<services::elevation::SmartRefreshService>(repository, backendProvider);
+        // Config values
+        refreshService->setRefreshThreshold(configService_->getElevationRefreshThresholdScore());
+        refreshService->startWorker();
+
+        auto elevationManager = std::make_shared<services::elevation::ElevationCacheManager>(
+            repository, backendProvider, refreshService,
+            configService_->getElevationLruCacheCapacity());
+
+        // RouteServiceの初期化と依存注入 (ManagerをProviderとして渡す)
+        routeService_ = std::make_shared<services::RouteService>(elevationManager);
+    } else {
+        LOG_WARN << "Redis client not available, RouteService initialized without elevation cache";
+        routeService_ = std::make_shared<services::RouteService>(backendProvider);
+    }
 }
 
 void Route::generate(const HttpRequestPtr &req,

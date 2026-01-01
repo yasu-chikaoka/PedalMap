@@ -39,6 +39,11 @@ jobs:
   # Backend Jobs
   backend-test:
     runs-on: ubuntu-22.04
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     defaults:
       run:
         working-directory: ./backend
@@ -60,7 +65,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake clang-tidy \
-            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev \
+            libjsoncpp-dev uuid-dev zlib1g-dev libssl-dev libhiredis-dev \
             libboost-all-dev libtbb-dev liblua5.3-dev libluabind-dev libstxxl-dev \
             libxml2-dev libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
             protobuf-compiler pkg-config
@@ -88,19 +93,29 @@ jobs:
           git submodule update --init
           mkdir build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          # hiredis の場所を明示しつつ、Drogon が Redis を見つけられるように強制する
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_EXAMPLES=OFF \
+            -DENABLE_REDIS=ON \
+            -DHiredis_INCLUDE_DIR=/usr/include/hiredis \
+            -DHiredis_LIBRARIES=/usr/lib/x86_64-linux-gnu/libhiredis.so
           make -j$(nproc)
           sudo make install
           cd ../..
           rm -rf drogon
 
       - name: Configure CMake (Test Only)
-        run: cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        run: |
+          rm -rf build
+          cmake -S . -B build -DBUILD_TESTS_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
       - name: Build
         run: cmake --build build -j$(nproc)
 
       - name: Test
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
         run: |
           cd build
           ctest --output-on-failure

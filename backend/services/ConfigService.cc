@@ -63,6 +63,24 @@ ConfigService::ConfigService() {
 
     const char* originEnv = std::getenv("ALLOW_ORIGIN");
     allowOrigin_ = originEnv ? originEnv : "*";
+
+    const char* redisHostEnv = std::getenv("REDIS_HOST");
+    redisHost_ = redisHostEnv ? redisHostEnv : "127.0.0.1";
+
+    const char* redisPortEnv = std::getenv("REDIS_PORT");
+    redisPort_ = redisPortEnv ? std::stoi(redisPortEnv) : 6379;
+
+    const char* redisPassEnv = std::getenv("REDIS_PASSWORD");
+    redisPassword_ = redisPassEnv ? redisPassEnv : "";
+
+    const char* ttlEnv = std::getenv("ELEVATION_CACHE_TTL_DAYS");
+    elevationCacheTtlDays_ = ttlEnv ? std::stoi(ttlEnv) : 365;
+
+    const char* thresholdEnv = std::getenv("ELEVATION_REFRESH_THRESHOLD_SCORE");
+    elevationRefreshThresholdScore_ = thresholdEnv ? std::stoi(thresholdEnv) : 10;
+
+    const char* capacityEnv = std::getenv("ELEVATION_LRU_CACHE_CAPACITY");
+    elevationLruCacheCapacity_ = capacityEnv ? std::stoi(capacityEnv) : 1000;
 }
 
 std::string ConfigService::findPath(const std::string& target, const std::string& fallback) {
@@ -126,5 +144,19 @@ std::string ConfigService::getGoogleMapsNearbySearchPath() const {
 }
 
 std::string ConfigService::getAllowOrigin() const { return allowOrigin_; }
+
+std::string ConfigService::getRedisHost() const { return redisHost_; }
+
+int ConfigService::getRedisPort() const { return redisPort_; }
+
+std::string ConfigService::getRedisPassword() const { return redisPassword_; }
+
+int ConfigService::getElevationCacheTtlDays() const { return elevationCacheTtlDays_; }
+
+int ConfigService::getElevationRefreshThresholdScore() const {
+    return elevationRefreshThresholdScore_;
+}
+
+int ConfigService::getElevationLruCacheCapacity() const { return elevationLruCacheCapacity_; }
 
 }  // namespace services
