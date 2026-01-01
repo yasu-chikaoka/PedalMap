@@ -48,7 +48,9 @@ export const useRoute = ({
       setRouteData(null);
 
       const toastId = toast.loading(UI_TEXT.BUTTONS.SEARCHING);
-      const currentWaypoints = overridingWaypoints || waypoints;
+      const currentWaypoints = Array.isArray(overridingWaypoints)
+        ? overridingWaypoints
+        : waypoints;
 
       try {
         const response = await fetch(
