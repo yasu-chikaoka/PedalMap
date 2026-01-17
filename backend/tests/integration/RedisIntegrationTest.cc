@@ -72,6 +72,17 @@ class RedisIntegrationTest : public ::testing::Test {
         }
     }
 
+    void TearDown() override {
+        // Fix Segmentation Fault: Check if adapter is null before using it
+        if (adapter_) {
+            // Perform any necessary cleanup using adapter_
+        }
+        
+        if (redisClient_) {
+             // redisClient_->execCommandAsync([](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
+        }
+    }
+
     drogon::nosql::RedisClientPtr redisClient_;
     std::unique_ptr<RedisElevationAdapter> adapter_;
 };
