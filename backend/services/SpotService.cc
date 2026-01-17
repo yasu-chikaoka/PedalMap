@@ -23,20 +23,20 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
         return {};
     }
 
-    // ルート全体をカバーするように、一定間隔でサンプリングした地点で検索を行う
+    // Decode polyline
     auto path = utils::PolylineDecoder::decode(polylineGeometry);
     if (path.empty()) return {};
 
     std::vector<Spot> allSpots;
     std::set<std::string> seenNames;
 
-    // サンプリング間隔（例：全ポイントの25%ごと、最大5箇所程度）
+    // Sample points along the route (e.g., every 25% or max 5 points)
     size_t step = std::max(static_cast<size_t>(1), path.size() / 4);
     std::vector<Coordinate> searchPoints;
     for (size_t i = 0; i < path.size(); i += step) {
         searchPoints.push_back(path[i]);
     }
-    // 終点も追加
+    // Ensure end point is included
     if (searchPoints.back().lat != path.back().lat || searchPoints.back().lon != path.back().lon) {
         searchPoints.push_back(path.back());
     }
@@ -110,7 +110,7 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                         }
                     } else if (jsonPtr && jsonPtr->isMember("status") &&
                                (*jsonPtr)["status"].asString() == "ZERO_RESULTS") {
-                        // 成功だが結果なし
+                        // Success but no results
                         success = true;
                     } else {
                         std::cerr << "[ERROR] Invalid response or API error." << std::endl;
