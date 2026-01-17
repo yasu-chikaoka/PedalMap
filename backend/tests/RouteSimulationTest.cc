@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <cmath>
+
+#include <gtest/gtest.h>
 
 #include "../services/RouteService.h"
 

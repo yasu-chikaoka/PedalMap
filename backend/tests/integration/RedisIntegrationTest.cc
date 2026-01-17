@@ -1,9 +1,9 @@
+#include <chrono>
+#include <thread>
+
 #include <drogon/drogon.h>
 #include <drogon/nosql/RedisClient.h>
 #include <gtest/gtest.h>
-
-#include <chrono>
-#include <thread>
 
 #include "../../services/elevation/RedisElevationAdapter.h"
 

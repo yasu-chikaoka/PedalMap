@@ -1,10 +1,10 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "../services/Coordinate.h"
 #include "../services/elevation/ElevationCacheManager.h"

@@ -1,14 +1,14 @@
 #pragma once
 
-#include <json/json.h>
-
 #include <functional>
 #include <memory>
 #include <optional>
-#include <osrm/osrm.hpp>
-#include <osrm/route_parameters.hpp>
 #include <string>
 #include <vector>
+
+#include <json/json.h>
+#include <osrm/osrm.hpp>
+#include <osrm/route_parameters.hpp>
 
 #include "Coordinate.h"
 

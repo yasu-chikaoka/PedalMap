@@ -1,16 +1,17 @@
-#include <drogon/drogon.h>
 #include <iostream>
 #include <memory>
 
+#include <drogon/drogon.h>
+
+#include "controllers/RouteController.h"
 #include "services/ConfigService.h"
 #include "services/OSRMClient.h"
-#include "services/SpotService.h"
 #include "services/RouteService.h"
+#include "services/SpotService.h"
+#include "services/elevation/ElevationCacheManager.h"
 #include "services/elevation/GSIElevationProvider.h"
 #include "services/elevation/RedisElevationAdapter.h"
 #include "services/elevation/SmartRefreshService.h"
-#include "services/elevation/ElevationCacheManager.h"
-#include "controllers/RouteController.h"
 
 int main() {
     std::cout << "Starting Cycling Backend Server..." << std::endl;

@@ -1,8 +1,9 @@
 #pragma once
 
-#include <drogon/HttpController.h>
 #include <functional>
 #include <memory>
+
+#include <drogon/HttpController.h>
 #include <osrm/json_container.hpp>
 
 #include "services/ConfigService.h"
