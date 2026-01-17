@@ -82,7 +82,8 @@ class RedisIntegrationTest : public ::testing::Test {
         }
 
         if (!redisClient_) {
-            std::cout << "DEBUG: Redis client is null after creation attempt, skipping" << std::endl;
+            std::cout << "DEBUG: Redis client is null after creation attempt, skipping"
+                      << std::endl;
             GTEST_SKIP();
             return;
         }
