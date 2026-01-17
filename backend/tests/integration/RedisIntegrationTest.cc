@@ -11,6 +11,9 @@ using namespace services::elevation;
 using namespace std::string_literals;
 
 class RedisIntegrationTest : public ::testing::Test {
+   public:
+    RedisIntegrationTest() : redisClient_(nullptr), adapter_(nullptr) {}
+
    protected:
     static void SetUpTestSuite() {
         // Initialize Drogon app and Redis client for integration testing
@@ -88,8 +91,8 @@ class RedisIntegrationTest : public ::testing::Test {
         }
     }
 
-    drogon::nosql::RedisClientPtr redisClient_ = nullptr;
-    std::unique_ptr<RedisElevationAdapter> adapter_ = nullptr;
+    drogon::nosql::RedisClientPtr redisClient_;
+    std::unique_ptr<RedisElevationAdapter> adapter_;
 };
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {
