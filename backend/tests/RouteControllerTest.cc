@@ -13,8 +13,6 @@ using namespace drogon;
 // Mock SpotService
 class MockSpotService : public SpotService {
    public:
-    // SpotServiceのコンストラクタは ConfigService& を取るため、
-    // ここではダミーの ConfigService を渡して初期化する
     MockSpotService(const ConfigService& config) : SpotService(config) {}
 
     std::vector<Spot> searchSpotsAlongRoute(const std::string& polyline, double radius) override {
@@ -26,8 +24,6 @@ class MockSpotService : public SpotService {
 // Mock OSRMClient
 class MockOSRMClient : public OSRMClient {
    public:
-    // OSRMClientのコンストラクタは ConfigService& を取るため、
-    // ここではダミーの ConfigService を渡して初期化する
     MockOSRMClient(const ConfigService& config) : OSRMClient(config) {}
 
     osrm::Status Route(const osrm::RouteParameters& params,
@@ -67,18 +63,26 @@ class MockOSRMClient : public OSRMClient {
 class MockRouteService : public RouteService {
    public:
     MockRouteService() : RouteService(nullptr) {}
+    
     std::optional<RouteResult> processRoute(const osrm::json::Object& osrmResult) override {
-        auto res = RouteService::processRoute(osrmResult);
-        if (res) {
-            res->elevation_gain_m = 50.0;  // 固定値
-        }
+        // Call base implementation or return mock data
+        // Here we return mock data to verify controller logic
+        RouteResult res;
+        res.distance_m = 1000.0;
+        res.duration_s = 600.0;
+        res.elevation_gain_m = 50.0; // Fixed value for testing
+        res.geometry = "dummy_polyline";
         return res;
     }
+
     std::optional<RouteResult> findBestRoute(const Coordinate& start, const Coordinate& end,
                                              const std::vector<Coordinate>& fixedWaypoints,
                                              double targetDistanceKm, double targetElevationM,
                                              const RouteEvaluator& evaluator) override {
-        return evaluator(fixedWaypoints);
+        // Mock implementation that just calls the evaluator with fixed waypoints
+        // or returns a predefined result.
+        // For this test, we can just return what processRoute would return.
+        return processRoute(osrm::json::Object());
     }
 };
 
@@ -86,7 +90,6 @@ class RouteControllerTest : public ::testing::Test {
    protected:
     void SetUp() override {
         configService = std::make_shared<ConfigService>();
-        // ConfigServiceの参照を渡す
         mockSpotService = std::make_shared<MockSpotService>(*configService);
         mockOSRMClient = std::make_shared<MockOSRMClient>(*configService);
         mockRouteService = std::make_shared<MockRouteService>();
@@ -113,6 +116,9 @@ TEST_F(RouteControllerTest, GenerateRoute_Success) {
     mockSpotService->mockSpots.push_back(spot);
 
     auto req = HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath("/api/v1/route/generate");
+    
     Json::Value json;
     json["start_point"]["lat"] = 35.0;
     json["start_point"]["lon"] = 139.0;
@@ -130,6 +136,28 @@ TEST_F(RouteControllerTest, GenerateRoute_Success) {
         auto jsonBody = resp->getJsonObject();
         ASSERT_NE(jsonBody, nullptr);
         EXPECT_EQ((*jsonBody)["summary"]["total_elevation_gain_m"].asDouble(), 50.0);
+        EXPECT_EQ((*jsonBody)["stops"].size(), 1);
+        EXPECT_EQ((*jsonBody)["stops"][0]["name"].asString(), "Test Spot");
+    });
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST_F(RouteControllerTest, GenerateRoute_MissingParams) {
+    auto req = HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    Json::Value json;
+    // Missing end_point
+    json["start_point"]["lat"] = 35.0;
+    json["start_point"]["lon"] = 139.0;
+
+    Json::StreamWriterBuilder builder;
+    req->setBody(Json::writeString(builder, json));
+    req->setContentTypeCode(CT_APPLICATION_JSON);
+
+    bool callbackCalled = false;
+    controller->generate(req, [&](const HttpResponsePtr& resp) {
+        callbackCalled = true;
+        EXPECT_EQ(resp->getStatusCode(), k400BadRequest);
     });
     EXPECT_TRUE(callbackCalled);
 }

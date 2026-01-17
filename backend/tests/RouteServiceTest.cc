@@ -19,7 +19,7 @@ class MockElevationProvider : public IElevationProvider {
         callback(std::vector<double>(coords.size(), 100.0));
     }
     std::optional<double> getElevationSync(const Coordinate& coord) override {
-        // 緯度が増えるごとに標高が上がるようなモック（獲得標高のテスト用）
+        // Mock elevation: 100 * lat
         return coord.lat * 100.0;
     }
 };
@@ -57,13 +57,14 @@ TEST_F(RouteServiceTest, CalculateDetourPoint_DetourNeeded) {
     Coordinate end{35.0, 139.1};
     auto result = service_->calculateDetourPoint(start, end, 20.0);
     ASSERT_TRUE(result.has_value());
+    // Should be different from start/end
     EXPECT_NE(result->lat, 35.0);
 }
 
 TEST_F(RouteServiceTest, CalculateElevationGain) {
     std::vector<Coordinate> path = {{35.0, 139.0}, {35.1, 139.0}, {35.2, 139.0}, {35.1, 139.0}};
-    // 標高: 3500, 3510, 3520, 3510
-    // 獲得標高: (3510-3500) + (3520-3510) = 20.0
+    // Elevations: 3500, 3510, 3520, 3510
+    // Gain: (3510-3500) + (3520-3510) = 10 + 10 = 20
     double gain = service_->calculateElevationGain(path);
     EXPECT_NEAR(gain, 20.0, 0.001);
 }
@@ -79,15 +80,17 @@ TEST_F(RouteServiceTest, FindBestRoute_ElevationConsidered) {
         res.distance_m = 20000.0;
         res.duration_s = 1000.0;
         res.geometry = "poly";
-        // ダミーのパスを生成（緯度を変えて獲得標高を作る）
         res.path = {{35.0, 139.0}, {35.1, 139.0}, {35.0, 139.1}};
-        // 獲得標高は (35.1*100 - 35.0*100) = 10.0
+        // Mock gain calculation inside evaluator or processRoute
+        // Here we just return a fixed value to simulate OSRM result processing
         res.elevation_gain_m = 10.0;
         return res;
     };
 
     auto result = service_->findBestRoute(start, end, {}, targetDist, targetElev, evaluator);
     ASSERT_TRUE(result.has_value());
+    // The logic selects the best route. Since we only have one candidate in this mock evaluator (conceptually),
+    // it returns that.
     EXPECT_DOUBLE_EQ(result->elevation_gain_m, 10.0);
 }
 
@@ -106,9 +109,13 @@ TEST_F(RouteServiceTest, ProcessRoute_WithElevation) {
     osrm::json::Array intersections;
     osrm::json::Object intersection1, intersection2;
     osrm::json::Array loc1, loc2;
+    
+    // Intersection 1: 35.0, 139.0
     loc1.values.push_back(osrm::json::Number(139.0));
     loc1.values.push_back(osrm::json::Number(35.0));
     intersection1.values["location"] = loc1;
+    
+    // Intersection 2: 35.1, 139.0
     loc2.values.push_back(osrm::json::Number(139.0));
     loc2.values.push_back(osrm::json::Number(35.1));
     intersection2.values["location"] = loc2;
@@ -125,6 +132,6 @@ TEST_F(RouteServiceTest, ProcessRoute_WithElevation) {
 
     auto result = service_->processRoute(osrmResult);
     ASSERT_TRUE(result.has_value());
-    // 標高差: 35.1*100 - 35.0*100 = 10.0
+    // Elevation diff: 35.1*100 - 35.0*100 = 10.0
     EXPECT_NEAR(result->elevation_gain_m, 10.0, 0.001);
 }
