@@ -33,7 +33,9 @@ class Route : public drogon::HttpController<Route> {
     static void setConfigService(std::shared_ptr<services::ConfigService> config) {
         configService_ = config;
     }
-    static void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
+    static void setOSRMClient(std::shared_ptr<services::OSRMClient> client) {
+        osrmClient_ = client;
+    }
     static void setSpotService(std::shared_ptr<services::SpotService> service) {
         spotService_ = service;
     }

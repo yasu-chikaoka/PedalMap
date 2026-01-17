@@ -77,9 +77,9 @@ class RedisIntegrationTest : public ::testing::Test {
         if (adapter_) {
             // Perform any necessary cleanup using adapter_
         }
-        
+
         if (redisClient_) {
-             // redisClient_->execCommandAsync([](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
+            // redisClient_->execCommandAsync([](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
         }
     }
 

@@ -83,7 +83,8 @@ int main() {
     }
 
     // 4. Inject Dependencies into Controller
-    // Drogon creates the controller instance automatically. We use static setters to inject dependencies.
+    // Drogon creates the controller instance automatically. We use static setters to inject
+    // dependencies.
     api::v1::Route::setConfigService(configService);
     api::v1::Route::setOSRMClient(osrmClient);
     api::v1::Route::setSpotService(spotService);
