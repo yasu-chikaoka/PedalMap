@@ -1,7 +1,7 @@
+#include <gtest/gtest.h>
+
 #include <iostream>
 #include <memory>
-
-#include <gtest/gtest.h>
 #include <osrm/engine_config.hpp>
 #include <osrm/json_container.hpp>
 #include <osrm/nearest_parameters.hpp>

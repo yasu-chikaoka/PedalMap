@@ -1,9 +1,9 @@
 #pragma once
 
+#include <drogon/HttpController.h>
+
 #include <functional>
 #include <memory>
-
-#include <drogon/HttpController.h>
 #include <osrm/json_container.hpp>
 
 #include "services/ConfigService.h"
@@ -33,12 +33,8 @@ class Route : public drogon::HttpController<Route> {
     void setConfigService(std::shared_ptr<services::ConfigService> config) {
         configService_ = config;
     }
-    void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { 
-        osrmClient_ = client; 
-    }
-    void setSpotService(std::shared_ptr<services::SpotService> service) { 
-        spotService_ = service; 
-    }
+    void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
+    void setSpotService(std::shared_ptr<services::SpotService> service) { spotService_ = service; }
     void setRouteService(std::shared_ptr<services::RouteService> service) {
         routeService_ = service;
     }

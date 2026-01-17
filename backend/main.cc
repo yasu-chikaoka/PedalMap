@@ -1,7 +1,7 @@
+#include <drogon/drogon.h>
+
 #include <iostream>
 #include <memory>
-
-#include <drogon/drogon.h>
 
 #include "controllers/RouteController.h"
 #include "services/ConfigService.h"
@@ -25,11 +25,8 @@ int main() {
     drogon::app().setLogLevel(trantor::Logger::kDebug);
 
     // Redis Client
-    drogon::app().createRedisClient(
-        configService->getRedisHost(), 
-        configService->getRedisPort(),
-        configService->getRedisPassword()
-    );
+    drogon::app().createRedisClient(configService->getRedisHost(), configService->getRedisPort(),
+                                    configService->getRedisPassword());
 
     // CORS
     std::string allowOrigin = configService->getAllowOrigin();
@@ -52,37 +49,33 @@ int main() {
         {drogon::Options});
 
     // 3. Initialize Services (Dependency Injection Wiring)
-    
+
     // OSRM & Spot Services
     auto osrmClient = std::make_shared<services::OSRMClient>(*configService);
     auto spotService = std::make_shared<services::SpotService>(*configService);
 
     // Elevation Stack
     auto backendProvider = std::make_shared<services::elevation::GSIElevationProvider>();
-    
-    // We need to get the Redis client from Drogon. 
+
+    // We need to get the Redis client from Drogon.
     // Note: createRedisClient is async/lazy, but getRedisClient returns the pointer.
     auto redisClient = drogon::app().getRedisClient();
-    
+
     std::shared_ptr<services::RouteService> routeService;
 
     if (redisClient) {
         LOG_INFO << "Redis client initialized. Setting up Elevation Cache Layer.";
         auto repository = std::make_shared<services::elevation::RedisElevationAdapter>(redisClient);
-        
-        auto refreshService = std::make_shared<services::elevation::SmartRefreshService>(
-            repository, backendProvider
-        );
+
+        auto refreshService =
+            std::make_shared<services::elevation::SmartRefreshService>(repository, backendProvider);
         refreshService->setRefreshThreshold(configService->getElevationRefreshThresholdScore());
         refreshService->startWorker();
 
         auto elevationManager = std::make_shared<services::elevation::ElevationCacheManager>(
-            repository, 
-            backendProvider, 
-            refreshService,
-            configService->getElevationLruCacheCapacity()
-        );
-        
+            repository, backendProvider, refreshService,
+            configService->getElevationLruCacheCapacity());
+
         routeService = std::make_shared<services::RouteService>(elevationManager);
     } else {
         LOG_WARN << "Redis client not available. Using direct GSI Elevation Provider.";

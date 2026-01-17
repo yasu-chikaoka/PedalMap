@@ -23,7 +23,7 @@ ConfigService::ConfigService() {
     }
 
     // 2. Load configurations from Environment Variables or Defaults
-    
+
     // Paths
     std::string osrmTarget = getEnvString("OSRM_DATA_PATH", "kanto-latest.osrm");
     osrmPath_ = findPath(osrmTarget, "/data/" + osrmTarget);
@@ -34,7 +34,8 @@ ConfigService::ConfigService() {
     // API
     googleApiKey_ = getEnvString("GOOGLE_PLACES_API_KEY", "");
     googleMapsApiBaseUrl_ = getEnvString("GOOGLE_MAPS_API_BASE_URL", "https://maps.googleapis.com");
-    googleMapsNearbySearchPath_ = getEnvString("GOOGLE_MAPS_NEARBY_SEARCH_PATH", "/maps/api/place/nearbysearch/json");
+    googleMapsNearbySearchPath_ =
+        getEnvString("GOOGLE_MAPS_NEARBY_SEARCH_PATH", "/maps/api/place/nearbysearch/json");
     apiTimeoutSeconds_ = getEnvInt("API_TIMEOUT_SECONDS", 5);
     apiRetryCount_ = getEnvInt("API_RETRY_COUNT", 3);
 
@@ -77,7 +78,7 @@ std::string ConfigService::findPath(const std::string& target, const std::string
 
     // If absolute path and exists
     if (target.front() == '/' && exists(target)) return target;
-    
+
     // If relative path, check relative to CWD
     if (exists(target)) return target;
 
@@ -88,14 +89,12 @@ std::string ConfigService::findPath(const std::string& target, const std::string
     }
 
     // Search base directories relative to executable
-    std::vector<std::string> baseDirs = {
-        exeDir_, 
-        exeDir_ + "/..", 
-        exeDir_ + "/../..",
-        exeDir_ + "/../../..",
-        exeDir_ + "/backend", 
-        exeDir_ + "/../backend"
-    };
+    std::vector<std::string> baseDirs = {exeDir_,
+                                         exeDir_ + "/..",
+                                         exeDir_ + "/../..",
+                                         exeDir_ + "/../../..",
+                                         exeDir_ + "/backend",
+                                         exeDir_ + "/../backend"};
 
     // Search subdirectories
     std::vector<std::string> subDirs = {"", "data/", "tests/data/", "backend/tests/data/"};
@@ -115,7 +114,9 @@ std::string ConfigService::getOsrmPath() const { return osrmPath_; }
 std::string ConfigService::getSpotsCsvPath() const { return spotsCsvPath_; }
 std::string ConfigService::getGoogleApiKey() const { return googleApiKey_; }
 std::string ConfigService::getGoogleMapsApiBaseUrl() const { return googleMapsApiBaseUrl_; }
-std::string ConfigService::getGoogleMapsNearbySearchPath() const { return googleMapsNearbySearchPath_; }
+std::string ConfigService::getGoogleMapsNearbySearchPath() const {
+    return googleMapsNearbySearchPath_;
+}
 int ConfigService::getApiTimeoutSeconds() const { return apiTimeoutSeconds_; }
 int ConfigService::getApiRetryCount() const { return apiRetryCount_; }
 int ConfigService::getServerPort() const { return serverPort_; }
@@ -125,7 +126,9 @@ std::string ConfigService::getRedisHost() const { return redisHost_; }
 int ConfigService::getRedisPort() const { return redisPort_; }
 std::string ConfigService::getRedisPassword() const { return redisPassword_; }
 int ConfigService::getElevationCacheTtlDays() const { return elevationCacheTtlDays_; }
-int ConfigService::getElevationRefreshThresholdScore() const { return elevationRefreshThresholdScore_; }
+int ConfigService::getElevationRefreshThresholdScore() const {
+    return elevationRefreshThresholdScore_;
+}
 int ConfigService::getElevationLruCacheCapacity() const { return elevationLruCacheCapacity_; }
 
 }  // namespace services

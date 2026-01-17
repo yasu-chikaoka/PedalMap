@@ -13,7 +13,7 @@ class ConfigService {
     // Path configurations
     [[nodiscard]] virtual std::string getOsrmPath() const;
     [[nodiscard]] virtual std::string getSpotsCsvPath() const;
-    
+
     // API configurations
     [[nodiscard]] virtual std::string getGoogleApiKey() const;
     [[nodiscard]] virtual std::string getGoogleMapsApiBaseUrl() const;
@@ -38,14 +38,14 @@ class ConfigService {
 
    private:
     std::string findPath(const std::string& filename, const std::string& defaultPath);
-    
+
     // Helper to get env vars with defaults
     std::string getEnvString(const char* key, const std::string& defaultValue);
     int getEnvInt(const char* key, int defaultValue);
     double getEnvDouble(const char* key, double defaultValue);
 
     std::string exeDir_;
-    
+
     // Cached configuration values
     std::string osrmPath_;
     std::string spotsCsvPath_;

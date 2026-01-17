@@ -1,11 +1,11 @@
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "../services/RouteService.h"
 
@@ -23,14 +23,12 @@ class RouteSimulationTest : public ::testing::Test {
     std::vector<Spot> loadSpots(const std::string& filename) {
         std::vector<Spot> spots;
         // Search in possible locations
-        std::vector<std::string> search_paths = {
-            filename,
-            "../" + filename,
-            "backend/" + filename,
-            "../backend/" + filename,
-            "tests/data/spots_test.csv",
-            "backend/tests/data/spots_test.csv"
-        };
+        std::vector<std::string> search_paths = {filename,
+                                                 "../" + filename,
+                                                 "backend/" + filename,
+                                                 "../backend/" + filename,
+                                                 "tests/data/spots_test.csv",
+                                                 "backend/tests/data/spots_test.csv"};
 
         std::ifstream file;
         for (const auto& path : search_paths) {
@@ -54,9 +52,17 @@ class RouteSimulationTest : public ::testing::Test {
             if (!std::getline(ss, spot.name, ',')) continue;
             if (!std::getline(ss, spot.type, ',')) continue;
             if (!std::getline(ss, item, ',')) continue;
-            try { spot.lat = std::stod(item); } catch(...) { continue; }
+            try {
+                spot.lat = std::stod(item);
+            } catch (...) {
+                continue;
+            }
             if (!std::getline(ss, item, ',')) continue;
-            try { spot.lon = std::stod(item); } catch(...) { continue; }
+            try {
+                spot.lon = std::stod(item);
+            } catch (...) {
+                continue;
+            }
             spots.push_back(spot);
         }
         return spots;

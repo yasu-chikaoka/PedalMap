@@ -64,7 +64,8 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
 
         for (int attempt = 0; attempt <= maxRetries; ++attempt) {
             if (attempt > 0) {
-                LOG_INFO << "Retrying spot search (attempt " << attempt << "/" << maxRetries << ")...";
+                LOG_INFO << "Retrying spot search (attempt " << attempt << "/" << maxRetries
+                         << ")...";
                 std::this_thread::sleep_for(std::chrono::milliseconds(500 * attempt));
             }
 
@@ -85,7 +86,7 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
             // Capture client to keep it alive if needed, though here we wait for it.
             // Capture promise by value (shared_ptr copy)
             client->sendRequest(req, [promise](drogon::ReqResult result,
-                                                const drogon::HttpResponsePtr& response) {
+                                               const drogon::HttpResponsePtr& response) {
                 std::vector<Spot> spots;
                 bool success = false;
 
@@ -120,8 +121,7 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                         success = true;
                     } else {
                         LOG_ERROR << "Invalid response or API error.";
-                        if (jsonPtr)
-                            LOG_DEBUG << "JSON: " << jsonPtr->toStyledString();
+                        if (jsonPtr) LOG_DEBUG << "JSON: " << jsonPtr->toStyledString();
                     }
                 } else {
                     LOG_ERROR << "Request failed. Result: " << (int)result

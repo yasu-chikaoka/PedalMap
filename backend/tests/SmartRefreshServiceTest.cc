@@ -1,11 +1,11 @@
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include "../services/Coordinate.h"
 #include "../services/elevation/IElevationCacheRepository.h"
@@ -29,9 +29,12 @@ class MockRepository : public IElevationCacheRepository {
 class MockProvider : public IElevationProvider {
    public:
     MOCK_METHOD(void, getElevation,
-                (const services::Coordinate& coord, IElevationProvider::ElevationCallback&& callback), (override));
+                (const services::Coordinate& coord,
+                 IElevationProvider::ElevationCallback&& callback),
+                (override));
     MOCK_METHOD(void, getElevations,
-                (const std::vector<services::Coordinate>& coords, IElevationProvider::ElevationsCallback&& callback),
+                (const std::vector<services::Coordinate>& coords,
+                 IElevationProvider::ElevationsCallback&& callback),
                 (override));
     MOCK_METHOD(std::optional<double>, getElevationSync, (const services::Coordinate& coord),
                 (override));

@@ -89,8 +89,8 @@ TEST_F(RouteServiceTest, FindBestRoute_ElevationConsidered) {
 
     auto result = service_->findBestRoute(start, end, {}, targetDist, targetElev, evaluator);
     ASSERT_TRUE(result.has_value());
-    // The logic selects the best route. Since we only have one candidate in this mock evaluator (conceptually),
-    // it returns that.
+    // The logic selects the best route. Since we only have one candidate in this mock evaluator
+    // (conceptually), it returns that.
     EXPECT_DOUBLE_EQ(result->elevation_gain_m, 10.0);
 }
 
@@ -109,12 +109,12 @@ TEST_F(RouteServiceTest, ProcessRoute_WithElevation) {
     osrm::json::Array intersections;
     osrm::json::Object intersection1, intersection2;
     osrm::json::Array loc1, loc2;
-    
+
     // Intersection 1: 35.0, 139.0
     loc1.values.push_back(osrm::json::Number(139.0));
     loc1.values.push_back(osrm::json::Number(35.0));
     intersection1.values["location"] = loc1;
-    
+
     // Intersection 2: 35.1, 139.0
     loc2.values.push_back(osrm::json::Number(139.0));
     loc2.values.push_back(osrm::json::Number(35.1));

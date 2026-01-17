@@ -1,7 +1,6 @@
 #include "RouteController.h"
 
 #include <iostream>
-
 #include <osrm/coordinate.hpp>
 #include <osrm/json_container.hpp>
 #include <osrm/match_parameters.hpp>
@@ -12,9 +11,10 @@
 
 namespace api::v1 {
 
+using namespace drogon;
+
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
-    
     // Ensure dependencies are injected
     if (!configService_ || !osrmClient_ || !spotService_ || !routeService_) {
         LOG_ERROR << "RouteController dependencies not initialized";
@@ -67,8 +67,9 @@ void Route::generate(const HttpRequestPtr &req,
     }
 
     if (targetDistanceKm > 0) {
-        LOG_DEBUG << "Target Distance: " << targetDistanceKm << " km, Elevation: " << targetElevationM << " m";
-        
+        LOG_DEBUG << "Target Distance: " << targetDistanceKm
+                  << " km, Elevation: " << targetElevationM << " m";
+
         auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
             -> std::optional<services::RouteResult> {
             osrm::RouteParameters params =
@@ -111,7 +112,7 @@ void Route::generate(const HttpRequestPtr &req,
     // Search spots along the route
     double searchRadius = configService_->getSpotSearchRadius();
     auto spots = spotService_->searchSpotsAlongRoute(bestRoute->geometry, searchRadius);
-    
+
     for (const auto &spot : spots) {
         Json::Value stop;
         stop["name"] = spot.name;

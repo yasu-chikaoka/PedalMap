@@ -371,14 +371,12 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
                         const auto& intersections =
                             step.values.at("intersections").get<osrm::json::Array>();
                         for (const auto& intersectionValue : intersections.values) {
-                            const auto& intersection =
-                                intersectionValue.get<osrm::json::Object>();
+                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
                             if (intersection.values.contains("location")) {
-                                const auto& loc = intersection.values.at("location")
-                                                      .get<osrm::json::Array>();
-                                res.path.push_back(
-                                    {loc.values[1].get<osrm::json::Number>().value,
-                                     loc.values[0].get<osrm::json::Number>().value});
+                                const auto& loc =
+                                    intersection.values.at("location").get<osrm::json::Array>();
+                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
+                                                    loc.values[0].get<osrm::json::Number>().value});
                             }
                         }
                     }

@@ -63,14 +63,14 @@ class MockOSRMClient : public OSRMClient {
 class MockRouteService : public RouteService {
    public:
     MockRouteService() : RouteService(nullptr) {}
-    
+
     std::optional<RouteResult> processRoute(const osrm::json::Object& osrmResult) override {
         // Call base implementation or return mock data
         // Here we return mock data to verify controller logic
         RouteResult res;
         res.distance_m = 1000.0;
         res.duration_s = 600.0;
-        res.elevation_gain_m = 50.0; // Fixed value for testing
+        res.elevation_gain_m = 50.0;  // Fixed value for testing
         res.geometry = "dummy_polyline";
         return res;
     }
@@ -118,7 +118,7 @@ TEST_F(RouteControllerTest, GenerateRoute_Success) {
     auto req = HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
     req->setPath("/api/v1/route/generate");
-    
+
     Json::Value json;
     json["start_point"]["lat"] = 35.0;
     json["start_point"]["lon"] = 139.0;
