@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "ConfigService.h"
-#include "RouteService.h"  // Coordinate構造体用
+#include "Coordinate.h"
 
 namespace services {
 

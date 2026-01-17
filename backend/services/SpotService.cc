@@ -4,6 +4,7 @@
 
 #include <future>
 #include <iostream>
+#include <memory>
 #include <set>
 #include <thread>
 
@@ -53,6 +54,9 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
     std::string baseUrl = configService_.getGoogleMapsApiBaseUrl();
     std::string apiPath = configService_.getGoogleMapsNearbySearchPath();
 
+    // Reuse HttpClient
+    auto client = drogon::HttpClient::newHttpClient(baseUrl);
+
     for (const auto& point : searchPoints) {
         std::cout << "[INFO] Searching spots around: " << point.lat << ", " << point.lon
                   << std::endl;
@@ -64,10 +68,10 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                 std::this_thread::sleep_for(std::chrono::milliseconds(500 * attempt));
             }
 
-            std::promise<std::pair<bool, std::vector<Spot>>> promise;
-            auto future = promise.get_future();
+            // Use shared_ptr for promise to avoid use-after-free on timeout
+            auto promise = std::make_shared<std::promise<std::pair<bool, std::vector<Spot>>>>();
+            auto future = promise->get_future();
 
-            auto client = drogon::HttpClient::newHttpClient(baseUrl);
             auto req = drogon::HttpRequest::newHttpRequest();
             req->setMethod(drogon::Get);
             req->setPath(apiPath);
@@ -78,7 +82,9 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
             req->setParameter("key", apiKey);
             req->setParameter("language", "ja");
 
-            client->sendRequest(req, [&promise](drogon::ReqResult result,
+            // Capture client to keep it alive if needed, though here we wait for it.
+            // Capture promise by value (shared_ptr copy)
+            client->sendRequest(req, [promise](drogon::ReqResult result,
                                                 const drogon::HttpResponsePtr& response) {
                 std::vector<Spot> spots;
                 bool success = false;
@@ -122,7 +128,7 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                               << ", Status: " << (response ? response->getStatusCode() : 0)
                               << std::endl;
                 }
-                promise.set_value({success, spots});
+                promise->set_value({success, spots});
             });
 
             if (future.wait_for(std::chrono::seconds(timeoutSec)) == std::future_status::ready) {
@@ -138,6 +144,8 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                 }
             } else {
                 std::cerr << "[WARN] Spot search timed out for point." << std::endl;
+                // Do not break, retry might help? Or maybe break if timeout?
+                // Usually timeout means network issue, retry might help.
             }
         }
     }
