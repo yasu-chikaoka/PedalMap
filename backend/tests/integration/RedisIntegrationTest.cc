@@ -88,8 +88,8 @@ class RedisIntegrationTest : public ::testing::Test {
         }
     }
 
-    drogon::nosql::RedisClientPtr redisClient_;
-    std::unique_ptr<RedisElevationAdapter> adapter_;
+    drogon::nosql::RedisClientPtr redisClient_ = nullptr;
+    std::unique_ptr<RedisElevationAdapter> adapter_ = nullptr;
 };
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {
