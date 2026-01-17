@@ -83,17 +83,11 @@ int main() {
     }
 
     // 4. Inject Dependencies into Controller
-    // Drogon creates the controller instance automatically. We retrieve it to inject dependencies.
-    auto routeController = drogon::app().getController<api::v1::Route>();
-    if (routeController) {
-        routeController->setConfigService(configService);
-        routeController->setOSRMClient(osrmClient);
-        routeController->setSpotService(spotService);
-        routeController->setRouteService(routeService);
-    } else {
-        LOG_FATAL << "Failed to get RouteController instance";
-        return 1;
-    }
+    // Drogon creates the controller instance automatically. We use static setters to inject dependencies.
+    api::v1::Route::setConfigService(configService);
+    api::v1::Route::setOSRMClient(osrmClient);
+    api::v1::Route::setSpotService(spotService);
+    api::v1::Route::setRouteService(routeService);
 
     // 5. Run Server
     drogon::app().run();

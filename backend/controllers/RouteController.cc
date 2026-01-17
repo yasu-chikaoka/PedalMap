@@ -13,6 +13,11 @@ namespace api::v1 {
 
 using namespace drogon;
 
+std::shared_ptr<services::ConfigService> Route::configService_;
+std::shared_ptr<services::OSRMClient> Route::osrmClient_;
+std::shared_ptr<services::SpotService> Route::spotService_;
+std::shared_ptr<services::RouteService> Route::routeService_;
+
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
     // Ensure dependencies are injected

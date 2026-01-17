@@ -30,20 +30,22 @@ class Route : public drogon::HttpController<Route> {
                   std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
     // Dependency Injection Setters
-    void setConfigService(std::shared_ptr<services::ConfigService> config) {
+    static void setConfigService(std::shared_ptr<services::ConfigService> config) {
         configService_ = config;
     }
-    void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
-    void setSpotService(std::shared_ptr<services::SpotService> service) { spotService_ = service; }
-    void setRouteService(std::shared_ptr<services::RouteService> service) {
+    static void setOSRMClient(std::shared_ptr<services::OSRMClient> client) { osrmClient_ = client; }
+    static void setSpotService(std::shared_ptr<services::SpotService> service) {
+        spotService_ = service;
+    }
+    static void setRouteService(std::shared_ptr<services::RouteService> service) {
         routeService_ = service;
     }
 
    private:
-    std::shared_ptr<services::ConfigService> configService_;
-    std::shared_ptr<services::OSRMClient> osrmClient_;
-    std::shared_ptr<services::SpotService> spotService_;
-    std::shared_ptr<services::RouteService> routeService_;
+    static std::shared_ptr<services::ConfigService> configService_;
+    static std::shared_ptr<services::OSRMClient> osrmClient_;
+    static std::shared_ptr<services::SpotService> spotService_;
+    static std::shared_ptr<services::RouteService> routeService_;
 };
 
 }  // namespace api::v1
