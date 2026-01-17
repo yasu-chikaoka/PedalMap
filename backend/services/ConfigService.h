@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 
 namespace services {
 
@@ -9,20 +10,25 @@ class ConfigService {
     ConfigService();
     virtual ~ConfigService() = default;
 
+    // Path configurations
     [[nodiscard]] std::string getOsrmPath() const;
     [[nodiscard]] std::string getSpotsCsvPath() const;
-    [[nodiscard]] double getSpotSearchRadius() const;
+    
+    // API configurations
     [[nodiscard]] std::string getGoogleApiKey() const;
+    [[nodiscard]] std::string getGoogleMapsApiBaseUrl() const;
+    [[nodiscard]] std::string getGoogleMapsNearbySearchPath() const;
     [[nodiscard]] int getApiTimeoutSeconds() const;
     [[nodiscard]] int getApiRetryCount() const;
 
-    // Additional configuration items
+    // Server configurations
     [[nodiscard]] int getServerPort() const;
-    [[nodiscard]] std::string getGoogleMapsApiBaseUrl() const;
-    [[nodiscard]] std::string getGoogleMapsNearbySearchPath() const;
     [[nodiscard]] std::string getAllowOrigin() const;
 
-    // Redis and Cache configuration
+    // Logic configurations
+    [[nodiscard]] double getSpotSearchRadius() const;
+
+    // Redis and Cache configurations
     [[nodiscard]] std::string getRedisHost() const;
     [[nodiscard]] int getRedisPort() const;
     [[nodiscard]] std::string getRedisPassword() const;
@@ -32,21 +38,25 @@ class ConfigService {
 
    private:
     std::string findPath(const std::string& filename, const std::string& defaultPath);
+    
+    // Helper to get env vars with defaults
+    std::string getEnvString(const char* key, const std::string& defaultValue);
+    int getEnvInt(const char* key, int defaultValue);
+    double getEnvDouble(const char* key, double defaultValue);
+
     std::string exeDir_;
+    
+    // Cached configuration values
     std::string osrmPath_;
     std::string spotsCsvPath_;
-    double spotSearchRadius_;
     std::string googleApiKey_;
-    int apiTimeoutSeconds_;
-    int apiRetryCount_;
-
-    // Internal cache
-    int serverPort_;
     std::string googleMapsApiBaseUrl_;
     std::string googleMapsNearbySearchPath_;
+    int apiTimeoutSeconds_;
+    int apiRetryCount_;
+    int serverPort_;
     std::string allowOrigin_;
-
-    // Redis and Cache
+    double spotSearchRadius_;
     std::string redisHost_;
     int redisPort_;
     std::string redisPassword_;

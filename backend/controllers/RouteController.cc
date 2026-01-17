@@ -9,46 +9,21 @@
 #include <osrm/status.hpp>
 #include <osrm/table_parameters.hpp>
 
-#include "services/elevation/ElevationCacheManager.h"
-#include "services/elevation/GSIElevationProvider.h"
-#include "services/elevation/RedisElevationAdapter.h"
-#include "services/elevation/SmartRefreshService.h"
-
 namespace api::v1 {
-
-Route::Route()
-    : configService_(std::make_shared<services::ConfigService>()),
-      osrmClient_(std::make_shared<services::OSRMClient>(*configService_)),
-      spotService_(std::make_shared<services::SpotService>(*configService_)) {
-    // 標高サービスの初期化 (Cache Layering)
-    auto backendProvider = std::make_shared<services::elevation::GSIElevationProvider>();
-
-    // Redis Client (Drogon global client)
-    // Note: createRedisClient was called in main.cc. We can retrieve it via app().getRedisClient().
-    auto redisClient = drogon::app().getRedisClient();
-    if (redisClient) {
-        auto repository = std::make_shared<services::elevation::RedisElevationAdapter>(redisClient);
-
-        auto refreshService =
-            std::make_shared<services::elevation::SmartRefreshService>(repository, backendProvider);
-        // Config values
-        refreshService->setRefreshThreshold(configService_->getElevationRefreshThresholdScore());
-        refreshService->startWorker();
-
-        auto elevationManager = std::make_shared<services::elevation::ElevationCacheManager>(
-            repository, backendProvider, refreshService,
-            configService_->getElevationLruCacheCapacity());
-
-        // RouteServiceの初期化と依存注入 (ManagerをProviderとして渡す)
-        routeService_ = std::make_shared<services::RouteService>(elevationManager);
-    } else {
-        LOG_WARN << "Redis client not available, RouteService initialized without elevation cache";
-        routeService_ = std::make_shared<services::RouteService>(backendProvider);
-    }
-}
 
 void Route::generate(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback) {
+    
+    // Ensure dependencies are injected
+    if (!configService_ || !osrmClient_ || !spotService_ || !routeService_) {
+        LOG_ERROR << "RouteController dependencies not initialized";
+        auto resp = HttpResponse::newHttpResponse();
+        resp->setStatusCode(k500InternalServerError);
+        resp->setBody("Internal Server Error: Service dependencies missing");
+        callback(resp);
+        return;
+    }
+
     auto jsonPtr = req->getJsonObject();
     if (!jsonPtr) {
         auto resp = HttpResponse::newHttpResponse();
@@ -82,10 +57,6 @@ void Route::generate(const HttpRequestPtr &req,
         targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
     }
 
-    if (targetDistanceKm > 0) {
-        LOG_DEBUG << "Target Distance: " << targetDistanceKm << " km";
-    }
-
     std::optional<services::RouteResult> bestRoute;
 
     double targetElevationM = 0.0;
@@ -95,6 +66,8 @@ void Route::generate(const HttpRequestPtr &req,
     }
 
     if (targetDistanceKm > 0) {
+        LOG_DEBUG << "Target Distance: " << targetDistanceKm << " km, Elevation: " << targetElevationM << " m";
+        
         auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
             -> std::optional<services::RouteResult> {
             osrm::RouteParameters params =
@@ -109,7 +82,7 @@ void Route::generate(const HttpRequestPtr &req,
         bestRoute = routeService_->findBestRoute(start, end, waypoints, targetDistanceKm,
                                                  targetElevationM, evaluator);
     } else {
-        // ターゲット距離がない場合（単純な経路検索）
+        // Simple route calculation
         osrm::RouteParameters params =
             services::RouteService::buildRouteParameters(start, end, waypoints);
         osrm::json::Object osrmResult;
@@ -126,8 +99,7 @@ void Route::generate(const HttpRequestPtr &req,
         return;
     }
 
-    LOG_DEBUG << "Route geometry: " << bestRoute->geometry;
-    LOG_DEBUG << "Elevation Gain: " << bestRoute->elevation_gain_m << " m";
+    LOG_DEBUG << "Route geometry found. Distance: " << bestRoute->distance_m << "m";
 
     Json::Value respJson;
     respJson["summary"]["total_distance_m"] = bestRoute->distance_m;
@@ -135,10 +107,10 @@ void Route::generate(const HttpRequestPtr &req,
     respJson["summary"]["total_elevation_gain_m"] = bestRoute->elevation_gain_m;
     respJson["geometry"] = bestRoute->geometry;
 
-    // ルート沿いのスポットを検索
+    // Search spots along the route
     double searchRadius = configService_->getSpotSearchRadius();
-    // ポリラインジオメトリ検索を使用
     auto spots = spotService_->searchSpotsAlongRoute(bestRoute->geometry, searchRadius);
+    
     for (const auto &spot : spots) {
         Json::Value stop;
         stop["name"] = spot.name;
