@@ -1,13 +1,15 @@
 #include "RouteService.h"
 
-#include <drogon/HttpAppFramework.h>
-
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <numbers>
-#include <osrm/nearest_parameters.hpp>
+#include <osrm/route_parameters.hpp>
 
 #include "elevation/IElevationProvider.h"
+
+// Logger
+#include <trantor/utils/Logger.h>
 
 namespace services {
 
@@ -15,13 +17,10 @@ namespace {
 
 constexpr double kEarthRadiusKm = 6371.0;
 constexpr double kDetourThresholdFactor = 1.2;
-constexpr double kMicroDegreeFactor = 1000000.0;
 
 double toRadians(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
-double toDegrees(double radians) { return radians * 180.0 / std::numbers::pi; }
-
-// ハーバーサイン公式
+// Haversine formula
 double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
     double dLat = toRadians(p2.lat - p1.lat);
     double dLon = toRadians(p2.lon - p1.lon);
@@ -48,14 +47,12 @@ std::optional<Coordinate> RouteService::calculateDetourPoint(const Coordinate& s
 
     double straightDist = calculateDistanceKm(start, end);
 
-    // 目標距離が直線距離の1.2倍未満なら迂回しない
+    // If target distance is less than 1.2x straight distance, don't detour
     if (straightDist == 0 || targetDistanceKm <= straightDist * kDetourThresholdFactor) {
         return std::nullopt;
     }
 
-    // NOLINTNEXTLINE(readability-magic-numbers)
     double midLat = (start.lat + end.lat) / 2.0;
-    // NOLINTNEXTLINE(readability-magic-numbers)
     double midLon = (start.lon + end.lon) / 2.0;
 
     double halfTarget = targetDistanceKm / 2.0;
@@ -195,37 +192,31 @@ std::optional<RouteResult> RouteService::findBestRoute(
         straightDist += calculateDistanceKm(fixedWaypoints.back(), end);
     }
 
-    // 候補生成のためのパラメータ
-    // 直線距離が短い場合は、より大きな係数で探索範囲を広げる
-    double baseExpansion = (straightDist > 0) ? (targetDistanceKm / straightDist) : 1.5;
+    // MCSS Algorithm: Multi-Candidate Sampling & Selection
 
-    // 複数の展開係数で候補を生成 (MCSSアプローチ)
+    // 1. Determine expansion factors based on ratio
     std::vector<double> expansionFactors;
-    if (straightDist == 0) {  // 完全な周回
+    if (straightDist == 0) {  // Loop
         expansionFactors = {0.2, 0.3, 0.4, 0.5, 0.6};
     } else {
-        // 現在の距離に対する目標距離の比率に基づく
         double ratio = targetDistanceKm / straightDist;
         if (ratio < 1.1) {
-            expansionFactors = {0.1, 0.2};  // ほとんど迂回しない
+            expansionFactors = {0.1, 0.2};
         } else {
-            // 目標距離に応じた「膨らみ」のバリエーション
             expansionFactors = {0.5, 0.8, 1.0, 1.2, 1.5};
         }
     }
 
-    // 左右(-1, 1)および拡張係数の組み合わせで候補点を生成
     struct Candidate {
         std::vector<Coordinate> waypoints;
         std::string type;
     };
     std::vector<Candidate> candidates;
 
-    // まずは経由地のみ（追加の迂回なし）を候補に入れる
+    // Base candidate: Direct path (or just fixed waypoints)
     candidates.push_back({fixedWaypoints, "Direct"});
 
-    // 迂回ポイントを挿入する区間を決定
-    // 経由地がある場合は、スタートから最初の経由地までの間に挿入してみる
+    // Determine segment to insert detour
     Coordinate segmentStart = start;
     Coordinate segmentEnd = fixedWaypoints.empty() ? end : fixedWaypoints[0];
 
@@ -238,7 +229,6 @@ std::optional<RouteResult> RouteService::findBestRoute(
     double vecY = (segmentEnd.lat - segmentStart.lat) * kLatDegToKm;
     double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
 
-    // ベクトルが0（完全な周回）の場合、適当な方向（北向きなど）を基準にする
     double perpX, perpY;
     if (vecLen == 0) {
         perpX = 1.0;
@@ -248,16 +238,15 @@ std::optional<RouteResult> RouteService::findBestRoute(
         perpY = vecX / vecLen;
     }
 
-    // 周回の場合、目標距離の円周を想定した半径
     double loopRadiusKm = targetDistanceKm / (2 * std::numbers::pi);
 
     for (double factor : expansionFactors) {
-        double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)  // 周回時の調整
+        double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)
                                              : (targetDistanceKm - straightDist) * 0.5 * factor;
 
         if (currentHeight <= 0) continue;
 
-        // 幾何学的計算による迂回点 (Single Point)
+        // Single Point Detour
         for (double side : {-1.0, 1.0}) {
             double viaLat = midLat + (side * perpY * currentHeight) / kLatDegToKm;
             double viaLon = midLon + (side * perpX * currentHeight) / kLonDegToKm;
@@ -268,7 +257,7 @@ std::optional<RouteResult> RouteService::findBestRoute(
             candidates.push_back({candWps, "Single"});
         }
 
-        // Polygon (2 points)
+        // Polygon Detour (2 points)
         if (vecLen > 0) {
             double offsetHeight = currentHeight * 0.8;
             for (double side : {-1.0, 1.0}) {
@@ -293,9 +282,8 @@ std::optional<RouteResult> RouteService::findBestRoute(
     std::optional<RouteResult> bestRoute = std::nullopt;
     double minCost = std::numeric_limits<double>::max();
 
-    // 重み設定
     const double kW_Distance = 1.0;
-    const double kW_Elevation = 2.0;  // 標高の優先度を高く設定
+    const double kW_Elevation = 2.0;
 
     for (const auto& cand : candidates) {
         auto result = evaluator(cand.waypoints);
@@ -306,8 +294,7 @@ std::optional<RouteResult> RouteService::findBestRoute(
                 elevDiff = std::abs(result->elevation_gain_m - targetElevationM);
             }
 
-            // コスト関数: 距離誤差と標高誤差の加重和
-            // 正規化: 距離はkm単位、標高はm単位
+            // Cost function
             double cost = kW_Distance * distDiff + kW_Elevation * (elevDiff / 100.0);
 
             if (cost < minCost) {
@@ -356,42 +343,40 @@ osrm::RouteParameters RouteService::buildRouteParameters(const Coordinate& start
     return params;
 }
 
-std::optional<RouteResult> RouteService::processRoute(const osrm::util::json::Object& osrmResult) {
+std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& osrmResult) {
     if (!osrmResult.values.contains("routes")) {
         return std::nullopt;
     }
-    const auto& routes = osrmResult.values.at("routes").get<osrm::util::json::Array>();
+    const auto& routes = osrmResult.values.at("routes").get<osrm::json::Array>();
     if (routes.values.empty()) {
         return std::nullopt;
     }
 
-    const auto& route = routes.values[0].get<osrm::util::json::Object>();
+    const auto& route = routes.values[0].get<osrm::json::Object>();
     RouteResult res;
-    res.distance_m = route.values.at("distance").get<osrm::util::json::Number>().value;
-    res.duration_s = route.values.at("duration").get<osrm::util::json::Number>().value;
-    res.geometry = route.values.at("geometry").get<osrm::util::json::String>().value;
+    res.distance_m = route.values.at("distance").get<osrm::json::Number>().value;
+    res.duration_s = route.values.at("duration").get<osrm::json::Number>().value;
+    res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
     res.elevation_gain_m = 0.0;
 
     if (route.values.contains("legs")) {
-        const auto& legs = route.values.at("legs").get<osrm::util::json::Array>();
+        const auto& legs = route.values.at("legs").get<osrm::json::Array>();
         for (const auto& legValue : legs.values) {
-            const auto& leg = legValue.get<osrm::util::json::Object>();
+            const auto& leg = legValue.get<osrm::json::Object>();
             if (leg.values.contains("steps")) {
-                const auto& steps = leg.values.at("steps").get<osrm::util::json::Array>();
+                const auto& steps = leg.values.at("steps").get<osrm::json::Array>();
                 for (const auto& stepValue : steps.values) {
-                    const auto& step = stepValue.get<osrm::util::json::Object>();
+                    const auto& step = stepValue.get<osrm::json::Object>();
                     if (step.values.contains("intersections")) {
                         const auto& intersections =
-                            step.values.at("intersections").get<osrm::util::json::Array>();
+                            step.values.at("intersections").get<osrm::json::Array>();
                         for (const auto& intersectionValue : intersections.values) {
-                            const auto& intersection =
-                                intersectionValue.get<osrm::util::json::Object>();
+                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
                             if (intersection.values.contains("location")) {
-                                const auto& loc = intersection.values.at("location")
-                                                      .get<osrm::util::json::Array>();
-                                res.path.push_back(
-                                    {loc.values[1].get<osrm::util::json::Number>().value,
-                                     loc.values[0].get<osrm::util::json::Number>().value});
+                                const auto& loc =
+                                    intersection.values.at("location").get<osrm::json::Array>();
+                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
+                                                    loc.values[0].get<osrm::json::Number>().value});
                             }
                         }
                     }
@@ -400,7 +385,7 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::util::json::Ob
         }
     }
 
-    // 獲得標高の計算
+    // Calculate elevation gain
     if (elevationProvider_ && !res.path.empty()) {
         res.elevation_gain_m = calculateElevationGain(res.path);
         LOG_DEBUG << "Processed path size: " << res.path.size()
@@ -421,10 +406,7 @@ double RouteService::calculateElevationGain(const std::vector<Coordinate>& path)
     double totalGain = 0.0;
     std::optional<double> lastElevation = std::nullopt;
 
-    LOG_DEBUG << "Starting elevation gain calculation for " << path.size() << " points";
-
-    // パフォーマンス向上のため、全地点ではなく適度な間隔でサンプリングすることを検討
-    // ここでは単純に全地点を同期的に取得
+    // Sampling could be implemented here for performance
     for (const auto& coord : path) {
         auto currentElevation = elevationProvider_->getElevationSync(coord);
         if (currentElevation) {

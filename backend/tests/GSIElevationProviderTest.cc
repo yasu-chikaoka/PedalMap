@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <sstream>
+
 #include "../services/elevation/GSIElevationProvider.h"
 
 using namespace services::elevation;

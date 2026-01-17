@@ -1,8 +1,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "../services/Coordinate.h"
 #include "../services/elevation/ElevationCacheManager.h"
-#include "../services/elevation/GSIElevationProvider.h"  // For cast check
 #include "../services/elevation/IElevationCacheRepository.h"
 #include "../services/elevation/IElevationProvider.h"
 #include "../services/elevation/SmartRefreshService.h"
@@ -22,37 +27,23 @@ class MockRepository : public IElevationCacheRepository {
     MOCK_METHOD(double, getAccessScore, (int z, int x, int y), (override));
 };
 
-class MockProvider : public GSIElevationProvider {
+class MockProvider : public IElevationProvider {
    public:
-    // We mock fetchTile implicitly via the real GSIElevationProvider interface?
-    // No, GSIElevationProvider is not virtual enough.
-    // Ideally we should mock IElevationProvider, but ElevationCacheManager casts to
-    // GSIElevationProvider. So we need a Mock that inherits from GSIElevationProvider and we hope
-    // dynamic_cast works.
-
-    // GSIElevationProvider methods are not virtual except those from IElevationProvider.
-    // But fetchTile is not virtual.
-    // This makes testing ElevationCacheManager hard because it depends on concrete
-    // GSIElevationProvider. Refactoring point: extract IFetcher interface.
-
-    // For now, we can only test Cache Hit scenarios effectively without real network calls.
-};
-
-// Simple stub for SmartRefreshService to avoid complex mocking of internal threads
-class StubRefreshService : public SmartRefreshService {
-   public:
-    StubRefreshService(std::shared_ptr<IElevationCacheRepository> repo,
-                       std::shared_ptr<IElevationProvider> prov)
-        : SmartRefreshService(repo, prov) {}
-
-    // Override methods if virtual... but they are not virtual in SmartRefreshService header.
-    // We should have made them virtual or use interface.
-    // Assuming we can just instantiate it with mocks.
+    MOCK_METHOD(void, getElevation,
+                (const services::Coordinate& coord,
+                 IElevationProvider::ElevationCallback&& callback),
+                (override));
+    MOCK_METHOD(void, getElevations,
+                (const std::vector<services::Coordinate>& coords,
+                 IElevationProvider::ElevationsCallback&& callback),
+                (override));
+    MOCK_METHOD(std::optional<double>, getElevationSync, (const services::Coordinate& coord),
+                (override));
 };
 
 TEST(ElevationCacheManagerTest, L1CacheHit) {
     auto mockRepo = std::make_shared<MockRepository>();
-    auto mockProvider = std::make_shared<GSIElevationProvider>();  // Real provider (dependency)
+    auto mockProvider = std::make_shared<MockProvider>();
     auto refreshService = std::make_shared<SmartRefreshService>(mockRepo, mockProvider);
 
     ElevationCacheManager manager(mockRepo, mockProvider, refreshService);
@@ -64,8 +55,9 @@ TEST(ElevationCacheManagerTest, L1CacheHit) {
         csvContent += "0.0";
     }
 
+    // Expect L2 getTile to be called once
     EXPECT_CALL(*mockRepo, getTile(15, 0, 0))
-        .WillOnce(Return(ElevationCacheEntry{csvContent, 123456789}));  // L2 Hit
+        .WillOnce(Return(ElevationCacheEntry{csvContent, 123456789}));
 
     // First call: L2 Hit -> L1 Populated
     auto result1 = manager.getTile(15, 0, 0);
@@ -80,7 +72,7 @@ TEST(ElevationCacheManagerTest, L1CacheHit) {
 
 TEST(ElevationCacheManagerTest, L2CacheHit) {
     auto mockRepo = std::make_shared<MockRepository>();
-    auto mockProvider = std::make_shared<GSIElevationProvider>();
+    auto mockProvider = std::make_shared<MockProvider>();
     auto refreshService = std::make_shared<SmartRefreshService>(mockRepo, mockProvider);
 
     ElevationCacheManager manager(mockRepo, mockProvider, refreshService);
@@ -102,7 +94,3 @@ TEST(ElevationCacheManagerTest, L2CacheHit) {
     ASSERT_NE(result, nullptr);
     EXPECT_EQ((*result)[0], 5.0);
 }
-
-// Cannot easily test API Fetch path due to hard dependency on GSIElevationProvider::fetchTile
-// (non-virtual). In a real project, we would refactor GSIElevationProvider to extract a virtual
-// interface for fetching.

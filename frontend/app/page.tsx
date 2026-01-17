@@ -1,16 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  APIProvider,
-  Map,
-  Marker,
-  InfoWindow,
-} from '@vis.gl/react-google-maps';
+import { APIProvider } from '@vis.gl/react-google-maps';
 import { Toaster, toast } from 'react-hot-toast';
-import { Plus, MapPin } from 'lucide-react';
-import { RoutePolyline } from '@/components/RoutePolyline';
 import { ControlPanel } from '@/components/ControlPanel';
+import { MapContainer } from '@/components/MapContainer';
 import { APP_CONFIG, UI_TEXT } from '@/config/constants';
 import { useRoute } from '@/hooks/useRoute';
 import type { Waypoint, Stop, Location } from '@/types';
@@ -24,10 +18,10 @@ export default function Home() {
   );
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [startPlaceName, setStartPlaceName] = useState(
-    APP_CONFIG.DEFAULT_LOCATIONS.START.name,
+    APP_CONFIG.DEFAULT_LOCATIONS.START.name || '',
   );
   const [endPlaceName, setEndPlaceName] = useState(
-    APP_CONFIG.DEFAULT_LOCATIONS.END.name,
+    APP_CONFIG.DEFAULT_LOCATIONS.END.name || '',
   );
   const [targetDistance, setTargetDistance] = useState<number>(
     APP_CONFIG.ROUTES.DEFAULT_DISTANCE_KM,
@@ -38,7 +32,7 @@ export default function Home() {
   const [selectedSpot, setSelectedSpot] = useState<Stop | null>(null);
   const [mapCenter, setMapCenter] = useState(APP_CONFIG.DEFAULT_MAP_CENTER);
 
-  // カスタムフックの使用
+  // Custom Hook
   const { routeData, loading, error, generateRoute } = useRoute({
     startPoint,
     endPoint,
@@ -47,7 +41,7 @@ export default function Home() {
     targetElevation,
   });
 
-  // StartPointが変わったら地図の中心も移動
+  // Update map center when start point changes
   useEffect(() => {
     setMapCenter(startPoint);
   }, [startPoint]);
@@ -81,13 +75,12 @@ export default function Home() {
       setSelectedSpot(null);
       toast.success('経由地を追加しました');
 
-      // 経由地追加後に自動でルートを再生成（調整）
+      // Auto regenerate route
       generateRoute(newWaypoints);
     },
     [waypoints, generateRoute],
   );
 
-  // 現在地取得処理
   const getCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
       toast.error(UI_TEXT.MESSAGES.GEOLOCATION_NOT_SUPPORTED);
@@ -133,76 +126,22 @@ export default function Home() {
         loading={loading}
         error={error}
         routeData={routeData}
-        onGenerate={generateRoute}
+        onGenerate={() => generateRoute()}
         onGetCurrentLocation={getCurrentLocation}
         onSpotClick={handleSpotClick}
       />
 
-      <div className="w-full md:w-2/3 bg-gray-100 flex items-center justify-center relative">
-        {hasApiKey ? (
-          <Map
-            className="w-full h-full"
-            center={mapCenter}
-            defaultZoom={APP_CONFIG.GOOGLE_MAPS.DEFAULT_ZOOM}
-            onCenterChanged={(ev) => setMapCenter(ev.detail.center)}
-            gestureHandling={'greedy'}
-            disableDefaultUI={true}
-          >
-            {routeData?.geometry && (
-              <RoutePolyline encodedGeometry={routeData.geometry} />
-            )}
-            {routeData?.stops?.map((stop, i) => (
-              <Marker
-                key={i}
-                position={{ lat: stop.location.lat, lng: stop.location.lon }}
-                onClick={() => handleSpotClick(stop)}
-              />
-            ))}
-            {selectedSpot && (
-              <InfoWindow
-                position={{
-                  lat: selectedSpot.location.lat,
-                  lng: selectedSpot.location.lon,
-                }}
-                onCloseClick={() => setSelectedSpot(null)}
-              >
-                <div className="p-2 min-w-[150px]">
-                  <h3 className="font-bold text-sm mb-1 text-gray-800">
-                    {selectedSpot.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded capitalize">
-                      {selectedSpot.type}
-                    </span>
-                    <span className="text-orange-500 font-bold text-xs">
-                      ★ {selectedSpot.rating}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleAddWaypoint(selectedSpot)}
-                    className="w-full bg-blue-600 text-white text-xs px-2 py-1.5 rounded hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors"
-                  >
-                    <Plus size={12} />
-                    {UI_TEXT.BUTTONS.ADD_WAYPOINT}
-                  </button>
-                </div>
-              </InfoWindow>
-            )}
-          </Map>
-        ) : (
-          <div className="text-center p-8">
-            <MapPin size={48} className="mx-auto text-gray-400 mb-4" />
-            <h2 className="text-xl font-semibold text-gray-600">
-              {UI_TEXT.TITLES.GOOGLE_MAPS_AREA}
-            </h2>
-            <p className="text-gray-500 mt-2">
-              {UI_TEXT.MESSAGES.API_KEY_MISSING}
-            </p>
-            <p className="text-sm text-gray-400 mt-4">
-              {UI_TEXT.MESSAGES.API_KEY_INSTRUCTION}
-            </p>
-          </div>
-        )}
+      <div className="w-full md:w-2/3 h-full">
+        <MapContainer
+          hasApiKey={!!hasApiKey}
+          mapCenter={mapCenter}
+          setMapCenter={setMapCenter}
+          routeData={routeData}
+          selectedSpot={selectedSpot}
+          setSelectedSpot={setSelectedSpot}
+          onSpotClick={handleSpotClick}
+          onAddWaypoint={handleAddWaypoint}
+        />
       </div>
     </>
   );

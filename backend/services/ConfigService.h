@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 namespace services {
@@ -9,44 +10,53 @@ class ConfigService {
     ConfigService();
     virtual ~ConfigService() = default;
 
-    [[nodiscard]] std::string getOsrmPath() const;
-    [[nodiscard]] std::string getSpotsCsvPath() const;
-    [[nodiscard]] double getSpotSearchRadius() const;
-    [[nodiscard]] std::string getGoogleApiKey() const;
-    [[nodiscard]] int getApiTimeoutSeconds() const;
-    [[nodiscard]] int getApiRetryCount() const;
+    // Path configurations
+    [[nodiscard]] virtual std::string getOsrmPath() const;
+    [[nodiscard]] virtual std::string getSpotsCsvPath() const;
 
-    // Additional configuration items
-    [[nodiscard]] int getServerPort() const;
-    [[nodiscard]] std::string getGoogleMapsApiBaseUrl() const;
-    [[nodiscard]] std::string getGoogleMapsNearbySearchPath() const;
-    [[nodiscard]] std::string getAllowOrigin() const;
+    // API configurations
+    [[nodiscard]] virtual std::string getGoogleApiKey() const;
+    [[nodiscard]] virtual std::string getGoogleMapsApiBaseUrl() const;
+    [[nodiscard]] virtual std::string getGoogleMapsNearbySearchPath() const;
+    [[nodiscard]] virtual int getApiTimeoutSeconds() const;
+    [[nodiscard]] virtual int getApiRetryCount() const;
 
-    // Redis and Cache configuration
-    [[nodiscard]] std::string getRedisHost() const;
-    [[nodiscard]] int getRedisPort() const;
-    [[nodiscard]] std::string getRedisPassword() const;
-    [[nodiscard]] int getElevationCacheTtlDays() const;
-    [[nodiscard]] int getElevationRefreshThresholdScore() const;
-    [[nodiscard]] int getElevationLruCacheCapacity() const;
+    // Server configurations
+    [[nodiscard]] virtual int getServerPort() const;
+    [[nodiscard]] virtual std::string getAllowOrigin() const;
+
+    // Logic configurations
+    [[nodiscard]] virtual double getSpotSearchRadius() const;
+
+    // Redis and Cache configurations
+    [[nodiscard]] virtual std::string getRedisHost() const;
+    [[nodiscard]] virtual int getRedisPort() const;
+    [[nodiscard]] virtual std::string getRedisPassword() const;
+    [[nodiscard]] virtual int getElevationCacheTtlDays() const;
+    [[nodiscard]] virtual int getElevationRefreshThresholdScore() const;
+    [[nodiscard]] virtual int getElevationLruCacheCapacity() const;
 
    private:
     std::string findPath(const std::string& filename, const std::string& defaultPath);
+
+    // Helper to get env vars with defaults
+    std::string getEnvString(const char* key, const std::string& defaultValue);
+    int getEnvInt(const char* key, int defaultValue);
+    double getEnvDouble(const char* key, double defaultValue);
+
     std::string exeDir_;
+
+    // Cached configuration values
     std::string osrmPath_;
     std::string spotsCsvPath_;
-    double spotSearchRadius_;
     std::string googleApiKey_;
-    int apiTimeoutSeconds_;
-    int apiRetryCount_;
-
-    // Internal cache
-    int serverPort_;
     std::string googleMapsApiBaseUrl_;
     std::string googleMapsNearbySearchPath_;
+    int apiTimeoutSeconds_;
+    int apiRetryCount_;
+    int serverPort_;
     std::string allowOrigin_;
-
-    // Redis and Cache
+    double spotSearchRadius_;
     std::string redisHost_;
     int redisPort_;
     std::string redisPassword_;

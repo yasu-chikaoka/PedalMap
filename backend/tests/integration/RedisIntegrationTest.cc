@@ -1,8 +1,12 @@
+#include <arpa/inet.h>
 #include <drogon/drogon.h>
 #include <drogon/nosql/RedisClient.h>
 #include <gtest/gtest.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include <chrono>
+#include <iostream>
 #include <thread>
 
 #include "../../services/elevation/RedisElevationAdapter.h"
@@ -11,37 +15,76 @@ using namespace services::elevation;
 using namespace std::string_literals;
 
 class RedisIntegrationTest : public ::testing::Test {
+   public:
+    RedisIntegrationTest() { std::cout << "DEBUG: RedisIntegrationTest Constructor" << std::endl; }
+
    protected:
     static void SetUpTestSuite() {
-        // Initialize Drogon app and Redis client for integration testing
-        // Note: In real CI, we need to ensure Redis is running at this host/port
+        // We defer Drogon initialization to SetUp to check connectivity first
+    }
+
+    bool isRedisRunning(const std::string& host, int port) {
+        int sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) return false;
+
+        struct sockaddr_in serv_addr;
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons(port);
+
+        if (inet_pton(AF_INET, host.c_str(), &serv_addr.sin_addr) <= 0) {
+            close(sock);
+            return false;
+        }
+
+        // Set a short timeout for connection
+        struct timeval timeout;
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
+
+        bool connected = (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == 0);
+        close(sock);
+        return connected;
+    }
+
+    void SetUp() override {
+        std::cout << "DEBUG: Starting SetUp" << std::endl;
+
         const std::string host =
             std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
         const int port = std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
 
-        // Check if client is already created to avoid multiple creation attempts
+        if (!isRedisRunning(host, port)) {
+            std::cout << "DEBUG: Redis is not running at " << host << ":" << port
+                      << ", skipping test." << std::endl;
+            GTEST_SKIP();
+            return;
+        }
+
+        // Only initialize Drogon Redis client if Redis is actually running
         try {
-            drogon::app().getRedisClient();
-        } catch (...) {
-            drogon::app().createRedisClient(host, port);
-        }
-    }
+            // Check if client is already created to avoid multiple creation attempts
+            try {
+                redisClient_ = drogon::app().getRedisClient();
+            } catch (...) {
+                // Not created yet
+            }
 
-    void SetUp() override {
-        redisClient_ = drogon::app().getRedisClient();
-        if (!redisClient_) {
-            // Try to create it if it doesn't exist (fallback)
-            const std::string host =
-                std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1";
-            const int port =
-                std::getenv("REDIS_PORT") ? std::stoi(std::getenv("REDIS_PORT")) : 6379;
-            drogon::app().createRedisClient(host, port);
-            redisClient_ = drogon::app().getRedisClient();
+            if (!redisClient_) {
+                drogon::app().createRedisClient(host, port);
+                redisClient_ = drogon::app().getRedisClient();
+            }
+        } catch (const std::exception& e) {
+            std::cout << "DEBUG: Failed to create Redis client: " << e.what() << std::endl;
+            GTEST_SKIP();
+            return;
         }
 
         if (!redisClient_) {
-            // GTEST_SKIP here might not prevent checking the client in test body
-            // so we rely on checks inside tests
+            std::cout << "DEBUG: Redis client is null after creation attempt, skipping"
+                      << std::endl;
+            GTEST_SKIP();
             return;
         }
 
@@ -63,17 +106,44 @@ class RedisIntegrationTest : public ::testing::Test {
             }
         }
         if (!connected) {
-            std::cout << "[WARN] Redis server not available at "
-                      << (std::getenv("REDIS_HOST") ? std::getenv("REDIS_HOST") : "127.0.0.1")
-                      << std::endl;
+            std::cout << "[WARN] Redis server not available via Drogon client" << std::endl;
             // Clear adapter if connection failed to ensure tests skip properly
             adapter_.reset();
             redisClient_.reset();
+            GTEST_SKIP();
         }
     }
 
-    drogon::nosql::RedisClientPtr redisClient_;
-    std::unique_ptr<RedisElevationAdapter> adapter_;
+    void TearDown() override {
+        std::cout << "DEBUG: Starting TearDown" << std::endl;
+        if (adapter_) {
+            std::cout << "DEBUG: Adapter is active" << std::endl;
+        } else {
+            std::cout << "DEBUG: Adapter is null" << std::endl;
+        }
+
+        if (redisClient_) {
+            try {
+                // Clean up Redis database to avoid interference between tests
+                redisClient_->execCommandSync(
+                    [](const drogon::nosql::RedisResult&) { return true; }, "FLUSHDB");
+            } catch (...) {
+                // Ignore any errors during cleanup (e.g. connection lost)
+            }
+        }
+
+        // Attempt to stop Drogon's event loop to prevent background thread crashes
+        // This is crucial if Drogon started background threads for Redis
+        // Only quit if we actually started something
+        if (redisClient_) {
+            drogon::app().quit();
+            // Give a short grace period for threads to exit
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    drogon::nosql::RedisClientPtr redisClient_ = nullptr;
+    std::unique_ptr<RedisElevationAdapter> adapter_ = nullptr;
 };
 
 TEST_F(RedisIntegrationTest, ConnectionAndPing) {

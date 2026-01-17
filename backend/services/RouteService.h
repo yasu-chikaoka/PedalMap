@@ -10,16 +10,13 @@
 #include <string>
 #include <vector>
 
+#include "Coordinate.h"
+
 namespace services {
 
 namespace elevation {
 class IElevationProvider;
 }
-
-struct Coordinate {
-    double lat;
-    double lon;
-};
 
 struct RouteResult {
     double distance_m;

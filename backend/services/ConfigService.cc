@@ -11,7 +11,7 @@
 namespace services {
 
 ConfigService::ConfigService() {
-    // 実行ファイルのディレクトリを取得
+    // 1. Determine executable directory
     char result[PATH_MAX];
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
     if (count != -1) {
@@ -22,65 +22,52 @@ ConfigService::ConfigService() {
         }
     }
 
-    // 環境変数からロードするか、デフォルト値を使用する
-    const char* osrmPathEnv = std::getenv("OSRM_DATA_PATH");
-    std::string osrmTarget = osrmPathEnv ? osrmPathEnv : "kanto-latest.osrm";
-    osrmPath_ = findPath(osrmTarget, osrmTarget);
-    if (osrmPath_.empty() || osrmPath_ == osrmTarget) {
-        // 見つからなかった場合、またはデフォルトのままの場合で、元のデフォルト値を保持したい場合
-        if (!osrmPathEnv) osrmPath_ = "/data/kanto-latest.osrm";
-    }
+    // 2. Load configurations from Environment Variables or Defaults
 
-    const char* radiusEnv = std::getenv("SPOT_SEARCH_RADIUS");
-    spotSearchRadius_ = radiusEnv ? std::stod(radiusEnv) : 500.0;
+    // Paths
+    std::string osrmTarget = getEnvString("OSRM_DATA_PATH", "kanto-latest.osrm");
+    osrmPath_ = findPath(osrmTarget, "/data/" + osrmTarget);
 
-    const char* csvPathEnv = std::getenv("SPOTS_CSV_PATH");
-    std::string csvTarget = csvPathEnv ? csvPathEnv : "spots.csv";
-    spotsCsvPath_ = findPath(csvTarget, csvTarget);
+    std::string csvTarget = getEnvString("SPOTS_CSV_PATH", "spots.csv");
+    spotsCsvPath_ = findPath(csvTarget, "/data/" + csvTarget);
 
-    // フォールバック: 見つからず、環境変数も指定されていない場合は従来のデフォルトを使用
-    if (!csvPathEnv && (spotsCsvPath_ == csvTarget) && std::ifstream(spotsCsvPath_).fail()) {
-        spotsCsvPath_ = "/data/spots.csv";
-    }
+    // API
+    googleApiKey_ = getEnvString("GOOGLE_PLACES_API_KEY", "");
+    googleMapsApiBaseUrl_ = getEnvString("GOOGLE_MAPS_API_BASE_URL", "https://maps.googleapis.com");
+    googleMapsNearbySearchPath_ =
+        getEnvString("GOOGLE_MAPS_NEARBY_SEARCH_PATH", "/maps/api/place/nearbysearch/json");
+    apiTimeoutSeconds_ = getEnvInt("API_TIMEOUT_SECONDS", 5);
+    apiRetryCount_ = getEnvInt("API_RETRY_COUNT", 3);
 
-    const char* apiKeyEnv = std::getenv("GOOGLE_PLACES_API_KEY");
-    googleApiKey_ = apiKeyEnv ? apiKeyEnv : "";
+    // Server
+    serverPort_ = getEnvInt("SERVER_PORT", 8080);
+    allowOrigin_ = getEnvString("ALLOW_ORIGIN", "*");
 
-    const char* timeoutEnv = std::getenv("API_TIMEOUT_SECONDS");
-    apiTimeoutSeconds_ = timeoutEnv ? std::stoi(timeoutEnv) : 5;
+    // Logic
+    spotSearchRadius_ = getEnvDouble("SPOT_SEARCH_RADIUS", 500.0);
 
-    const char* retryEnv = std::getenv("API_RETRY_COUNT");
-    apiRetryCount_ = retryEnv ? std::stoi(retryEnv) : 3;
+    // Redis & Cache
+    redisHost_ = getEnvString("REDIS_HOST", "127.0.0.1");
+    redisPort_ = getEnvInt("REDIS_PORT", 6379);
+    redisPassword_ = getEnvString("REDIS_PASSWORD", "");
+    elevationCacheTtlDays_ = getEnvInt("ELEVATION_CACHE_TTL_DAYS", 365);
+    elevationRefreshThresholdScore_ = getEnvInt("ELEVATION_REFRESH_THRESHOLD_SCORE", 10);
+    elevationLruCacheCapacity_ = getEnvInt("ELEVATION_LRU_CACHE_CAPACITY", 1000);
+}
 
-    const char* portEnv = std::getenv("SERVER_PORT");
-    serverPort_ = portEnv ? std::stoi(portEnv) : 8080;
+std::string ConfigService::getEnvString(const char* key, const std::string& defaultValue) {
+    const char* val = std::getenv(key);
+    return val ? std::string(val) : defaultValue;
+}
 
-    const char* gmapBaseUrlEnv = std::getenv("GOOGLE_MAPS_API_BASE_URL");
-    googleMapsApiBaseUrl_ = gmapBaseUrlEnv ? gmapBaseUrlEnv : "https://maps.googleapis.com";
+int ConfigService::getEnvInt(const char* key, int defaultValue) {
+    const char* val = std::getenv(key);
+    return val ? std::stoi(val) : defaultValue;
+}
 
-    const char* gmapPathEnv = std::getenv("GOOGLE_MAPS_NEARBY_SEARCH_PATH");
-    googleMapsNearbySearchPath_ = gmapPathEnv ? gmapPathEnv : "/maps/api/place/nearbysearch/json";
-
-    const char* originEnv = std::getenv("ALLOW_ORIGIN");
-    allowOrigin_ = originEnv ? originEnv : "*";
-
-    const char* redisHostEnv = std::getenv("REDIS_HOST");
-    redisHost_ = redisHostEnv ? redisHostEnv : "127.0.0.1";
-
-    const char* redisPortEnv = std::getenv("REDIS_PORT");
-    redisPort_ = redisPortEnv ? std::stoi(redisPortEnv) : 6379;
-
-    const char* redisPassEnv = std::getenv("REDIS_PASSWORD");
-    redisPassword_ = redisPassEnv ? redisPassEnv : "";
-
-    const char* ttlEnv = std::getenv("ELEVATION_CACHE_TTL_DAYS");
-    elevationCacheTtlDays_ = ttlEnv ? std::stoi(ttlEnv) : 365;
-
-    const char* thresholdEnv = std::getenv("ELEVATION_REFRESH_THRESHOLD_SCORE");
-    elevationRefreshThresholdScore_ = thresholdEnv ? std::stoi(thresholdEnv) : 10;
-
-    const char* capacityEnv = std::getenv("ELEVATION_LRU_CACHE_CAPACITY");
-    elevationLruCacheCapacity_ = capacityEnv ? std::stoi(capacityEnv) : 1000;
+double ConfigService::getEnvDouble(const char* key, double defaultValue) {
+    const char* val = std::getenv(key);
+    return val ? std::stod(val) : defaultValue;
 }
 
 std::string ConfigService::findPath(const std::string& target, const std::string& fallback) {
@@ -89,6 +76,10 @@ std::string ConfigService::findPath(const std::string& target, const std::string
         return f.good();
     };
 
+    // If absolute path and exists
+    if (target.front() == '/' && exists(target)) return target;
+
+    // If relative path, check relative to CWD
     if (exists(target)) return target;
 
     std::string filename = target;
@@ -97,26 +88,22 @@ std::string ConfigService::findPath(const std::string& target, const std::string
         filename = target.substr(lastSlash + 1);
     }
 
-    // 探索するベースディレクトリのリスト
-    std::vector<std::string> baseDirs = {exeDir_, exeDir_ + "/..", exeDir_ + "/../..",
+    // Search base directories relative to executable
+    std::vector<std::string> baseDirs = {exeDir_,
+                                         exeDir_ + "/..",
+                                         exeDir_ + "/../..",
                                          exeDir_ + "/../../..",
-                                         // ビルドディレクトリからの相対位置を想定
-                                         exeDir_ + "/backend", exeDir_ + "/../backend"};
+                                         exeDir_ + "/backend",
+                                         exeDir_ + "/../backend"};
 
-    // 特定のサブディレクトリも探索対象に含める
+    // Search subdirectories
     std::vector<std::string> subDirs = {"", "data/", "tests/data/", "backend/tests/data/"};
 
     for (const auto& base : baseDirs) {
         if (base.empty()) continue;
-
-        // 1. ベースディレクトリ + 元のパス (targetが相対パスの場合)
-        std::string p1 = base + "/" + target;
-        if (exists(p1)) return p1;
-
-        // 2. ベースディレクトリ + サブディレクトリ + ファイル名
         for (const auto& sub : subDirs) {
-            std::string p2 = base + "/" + sub + filename;
-            if (exists(p2)) return p2;
+            std::string p = base + "/" + sub + filename;
+            if (exists(p)) return p;
         }
     }
 
@@ -124,39 +111,24 @@ std::string ConfigService::findPath(const std::string& target, const std::string
 }
 
 std::string ConfigService::getOsrmPath() const { return osrmPath_; }
-
 std::string ConfigService::getSpotsCsvPath() const { return spotsCsvPath_; }
-
-double ConfigService::getSpotSearchRadius() const { return spotSearchRadius_; }
-
 std::string ConfigService::getGoogleApiKey() const { return googleApiKey_; }
-
-int ConfigService::getApiTimeoutSeconds() const { return apiTimeoutSeconds_; }
-
-int ConfigService::getApiRetryCount() const { return apiRetryCount_; }
-
-int ConfigService::getServerPort() const { return serverPort_; }
-
 std::string ConfigService::getGoogleMapsApiBaseUrl() const { return googleMapsApiBaseUrl_; }
-
 std::string ConfigService::getGoogleMapsNearbySearchPath() const {
     return googleMapsNearbySearchPath_;
 }
-
+int ConfigService::getApiTimeoutSeconds() const { return apiTimeoutSeconds_; }
+int ConfigService::getApiRetryCount() const { return apiRetryCount_; }
+int ConfigService::getServerPort() const { return serverPort_; }
 std::string ConfigService::getAllowOrigin() const { return allowOrigin_; }
-
+double ConfigService::getSpotSearchRadius() const { return spotSearchRadius_; }
 std::string ConfigService::getRedisHost() const { return redisHost_; }
-
 int ConfigService::getRedisPort() const { return redisPort_; }
-
 std::string ConfigService::getRedisPassword() const { return redisPassword_; }
-
 int ConfigService::getElevationCacheTtlDays() const { return elevationCacheTtlDays_; }
-
 int ConfigService::getElevationRefreshThresholdScore() const {
     return elevationRefreshThresholdScore_;
 }
-
 int ConfigService::getElevationLruCacheCapacity() const { return elevationLruCacheCapacity_; }
 
 }  // namespace services

@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-22.04
     services:
       redis:
-        image: redis:7-alpine
+        image: redis
         ports:
           - 6379:6379
     defaults:
@@ -59,7 +59,7 @@ jobs:
             /usr/local/include
             /usr/local/bin
             /usr/local/share/osrm
-          key: ${{ runner.os }}-backend-deps-v1
+          key: ${{ runner.os }}-backend-deps-v3
 
       - name: Install dependencies (apt)
         run: |
