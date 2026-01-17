@@ -1,9 +1,9 @@
 #include "SpotService.h"
 
 #include <drogon/HttpClient.h>
+#include <trantor/utils/Logger.h>
 
 #include <future>
-#include <iostream>
 #include <memory>
 #include <set>
 #include <thread>
@@ -20,7 +20,7 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
 
     std::string apiKey = configService_.getGoogleApiKey();
     if (apiKey.empty()) {
-        std::cerr << "[WARN] Google API Key is not set. Skipping spot search." << std::endl;
+        LOG_WARN << "Google API Key is not set. Skipping spot search.";
         return {};
     }
 
@@ -58,13 +58,11 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
     auto client = drogon::HttpClient::newHttpClient(baseUrl);
 
     for (const auto& point : searchPoints) {
-        std::cout << "[INFO] Searching spots around: " << point.lat << ", " << point.lon
-                  << std::endl;
+        LOG_INFO << "Searching spots around: " << point.lat << ", " << point.lon;
 
         for (int attempt = 0; attempt <= maxRetries; ++attempt) {
             if (attempt > 0) {
-                std::cout << "[INFO] Retrying spot search (attempt " << attempt << "/" << maxRetries
-                          << ")..." << std::endl;
+                LOG_INFO << "Retrying spot search (attempt " << attempt << "/" << maxRetries << ")...";
                 std::this_thread::sleep_for(std::chrono::milliseconds(500 * attempt));
             }
 
@@ -119,14 +117,13 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                         // Success but no results
                         success = true;
                     } else {
-                        std::cerr << "[ERROR] Invalid response or API error." << std::endl;
+                        LOG_ERROR << "Invalid response or API error.";
                         if (jsonPtr)
-                            std::cout << "[DEBUG] JSON: " << jsonPtr->toStyledString() << std::endl;
+                            LOG_DEBUG << "JSON: " << jsonPtr->toStyledString();
                     }
                 } else {
-                    std::cerr << "[ERROR] Request failed. Result: " << (int)result
-                              << ", Status: " << (response ? response->getStatusCode() : 0)
-                              << std::endl;
+                    LOG_ERROR << "Request failed. Result: " << (int)result
+                              << ", Status: " << (response ? response->getStatusCode() : 0);
                 }
                 promise->set_value({success, spots});
             });
@@ -143,14 +140,12 @@ std::vector<Spot> SpotService::searchSpotsAlongRoute(const std::string& polyline
                     break;  // Success, exit retry loop
                 }
             } else {
-                std::cerr << "[WARN] Spot search timed out for point." << std::endl;
-                // Do not break, retry might help? Or maybe break if timeout?
-                // Usually timeout means network issue, retry might help.
+                LOG_WARN << "Spot search timed out for point.";
             }
         }
     }
 
-    std::cout << "[INFO] Found total " << allSpots.size() << " unique spots." << std::endl;
+    LOG_INFO << "Found total " << allSpots.size() << " unique spots.";
     return allSpots;
 }
 

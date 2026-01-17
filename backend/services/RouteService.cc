@@ -4,7 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <numbers>
-#include <osrm/nearest_parameters.hpp>
+#include <osrm/route_parameters.hpp>
 
 #include "elevation/IElevationProvider.h"
 
