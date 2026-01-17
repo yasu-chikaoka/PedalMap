@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <iostream>
 #include <thread>
 
 #include "../../services/elevation/RedisElevationAdapter.h"
@@ -11,6 +12,9 @@ using namespace services::elevation;
 using namespace std::string_literals;
 
 class RedisIntegrationTest : public ::testing::Test {
+   public:
+    RedisIntegrationTest() { std::cout << "DEBUG: RedisIntegrationTest Constructor" << std::endl; }
+
    protected:
     static void SetUpTestSuite() {
         // Initialize Drogon app and Redis client for integration testing
@@ -28,6 +32,7 @@ class RedisIntegrationTest : public ::testing::Test {
     }
 
     void SetUp() override {
+        std::cout << "DEBUG: Starting SetUp" << std::endl;
         redisClient_ = drogon::app().getRedisClient();
         if (!redisClient_) {
             // Try to create it if it doesn't exist (fallback)
@@ -40,6 +45,7 @@ class RedisIntegrationTest : public ::testing::Test {
         }
 
         if (!redisClient_) {
+            std::cout << "DEBUG: Redis client is null, skipping" << std::endl;
             // GTEST_SKIP here might not prevent checking the client in test body
             // so we rely on checks inside tests
             return;
@@ -73,9 +79,12 @@ class RedisIntegrationTest : public ::testing::Test {
     }
 
     void TearDown() override {
-        // Fix Segmentation Fault: Check if adapter/client is null before using it
-        // If the test was skipped (because of null client), TearDown is still called.
-        // Accessing null pointers here would cause a SegFault.
+        std::cout << "DEBUG: Starting TearDown" << std::endl;
+        if (adapter_) {
+            std::cout << "DEBUG: Adapter is active" << std::endl;
+        } else {
+            std::cout << "DEBUG: Adapter is null" << std::endl;
+        }
 
         if (redisClient_) {
             try {
