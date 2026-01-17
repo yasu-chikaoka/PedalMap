@@ -62,15 +62,21 @@ void Route::generate(const HttpRequestPtr &req,
 
     if (jsonPtr->isMember("preferences")) {
         const auto& prefs = (*jsonPtr)["preferences"];
+        
+        // Parse target distance (support multiple keys)
         if (prefs.isMember("target_distance_km")) {
             targetDistanceKm = prefs["target_distance_km"].asDouble();
+        } else if (prefs.isMember("target_distance")) {
+            targetDistanceKm = prefs["target_distance"].asDouble();
         }
         
-        // Support both keys for elevation to be safe
+        // Parse target elevation (support multiple keys)
         if (prefs.isMember("target_elevation_m")) {
             targetElevationM = prefs["target_elevation_m"].asDouble();
         } else if (prefs.isMember("target_elevation_gain_m")) {
             targetElevationM = prefs["target_elevation_gain_m"].asDouble();
+        } else if (prefs.isMember("target_elevation")) {
+            targetElevationM = prefs["target_elevation"].asDouble();
         }
     }
 
@@ -78,7 +84,7 @@ void Route::generate(const HttpRequestPtr &req,
 
     if (targetDistanceKm > 0) {
         LOG_DEBUG << "Target Distance: " << targetDistanceKm
-                  << " km, Elevation: " << targetElevationM << " m";
+                  << " km, Target Elevation: " << targetElevationM << " m";
 
         auto evaluator = [&](const std::vector<services::Coordinate> &candidateWaypoints)
             -> std::optional<services::RouteResult> {
@@ -111,7 +117,8 @@ void Route::generate(const HttpRequestPtr &req,
         return;
     }
 
-    LOG_DEBUG << "Route geometry found. Distance: " << bestRoute->distance_m << "m";
+    LOG_DEBUG << "Route selected. Distance: " << bestRoute->distance_m 
+              << "m, Elevation Gain: " << bestRoute->elevation_gain_m << "m";
 
     Json::Value respJson;
     respJson["summary"]["total_distance_m"] = bestRoute->distance_m;

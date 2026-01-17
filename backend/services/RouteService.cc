@@ -315,7 +315,8 @@ std::optional<RouteResult> RouteService::findBestRoute(
     double minCost = std::numeric_limits<double>::max();
 
     const double kW_Distance = 1.0;
-    const double kW_Elevation = 2.0;
+    // Increased weight for elevation to ensure it's prioritized when requested
+    const double kW_Elevation = 5.0;
 
     for (const auto& cand : candidates) {
         auto result = evaluator(cand.waypoints);
@@ -328,6 +329,10 @@ std::optional<RouteResult> RouteService::findBestRoute(
 
             // Cost function
             double cost = kW_Distance * distDiff + kW_Elevation * (elevDiff / 100.0);
+
+            LOG_TRACE << "Candidate: dist=" << result->distance_m 
+                      << "m, elev=" << result->elevation_gain_m 
+                      << "m, cost=" << cost;
 
             if (cost < minCost) {
                 minCost = cost;
@@ -400,8 +405,8 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
         LOG_DEBUG << "Processed path size: " << res.path.size()
                   << ", calculated elevation gain: " << res.elevation_gain_m;
     } else {
-        LOG_DEBUG << "No elevation calculation: "
-                  << (elevationProvider_ ? "path empty" : "no provider");
+        if (!elevationProvider_) LOG_WARN << "Elevation provider is null";
+        if (res.path.empty()) LOG_WARN << "Path is empty after decoding";
     }
 
     return res;
