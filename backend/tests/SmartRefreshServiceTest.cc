@@ -1,9 +1,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
+#include <string>
 #include <thread>
+#include <vector>
 
-#include "../services/RouteService.h"  // For Coordinate definition
+#include "../services/Coordinate.h"
 #include "../services/elevation/IElevationCacheRepository.h"
 #include "../services/elevation/IElevationProvider.h"
 #include "../services/elevation/SmartRefreshService.h"
