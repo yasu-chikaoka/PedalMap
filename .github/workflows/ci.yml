@@ -59,7 +59,7 @@ jobs:
             /usr/local/include
             /usr/local/bin
             /usr/local/share/osrm
-          key: ${{ runner.os }}-backend-deps-v1
+          key: ${{ runner.os }}-backend-deps-v3
 
       - name: Install dependencies (apt)
         run: |

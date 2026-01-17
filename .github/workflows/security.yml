@@ -36,7 +36,7 @@ jobs:
           /usr/local/include/drogon
           /usr/local/lib/libdrogon*
           /usr/local/lib/cmake/Drogon
-        key: ${{ runner.os }}-cpp-deps-v1
+        key: ${{ runner.os }}-cpp-deps-v2
 
     - name: Install System Dependencies
       if: matrix.language == 'c-cpp'
@@ -47,7 +47,7 @@ jobs:
             liblua5.3-dev libluabind-dev libstxxl-dev libxml2-dev \
             libosmpbf-dev libbz2-dev libzip-dev libprotobuf-dev \
             protobuf-compiler libjsoncpp-dev uuid-dev zlib1g-dev \
-            libssl-dev curl pkg-config
+            libssl-dev curl pkg-config libhiredis-dev
 
     - name: Build OSRM
       if: matrix.language == 'c-cpp' && steps.cache-deps.outputs.cache-hit != 'true'
@@ -70,7 +70,11 @@ jobs:
         git checkout v1.9.5
         git submodule update --init
         mkdir build && cd build
-        cmake ..
+        cmake .. -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_EXAMPLES=OFF \
+          -DENABLE_REDIS=ON \
+          -DHiredis_INCLUDE_DIR=/usr/include/hiredis \
+          -DHiredis_LIBRARIES=/usr/lib/x86_64-linux-gnu/libhiredis.so
         make -j$(nproc)
         sudo make install
 
