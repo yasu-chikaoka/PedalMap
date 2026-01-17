@@ -81,7 +81,7 @@ class RedisIntegrationTest : public ::testing::Test {
             try {
                 // Clean up Redis database to avoid interference between tests
                 redisClient_->execCommandSync(
-                    [](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
+                    [](const drogon::nosql::RedisResult&) { return true; }, "FLUSHDB");
             } catch (...) {
                 // Ignore any errors during cleanup (e.g. connection lost)
             }
