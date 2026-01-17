@@ -95,6 +95,13 @@ class RedisIntegrationTest : public ::testing::Test {
                 // Ignore any errors during cleanup (e.g. connection lost)
             }
         }
+
+        // Attempt to stop Drogon's event loop to prevent background thread crashes
+        // This is crucial if Drogon started background threads for Redis
+        drogon::app().quit();
+        
+        // Give a short grace period for threads to exit
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     drogon::nosql::RedisClientPtr redisClient_ = nullptr;
