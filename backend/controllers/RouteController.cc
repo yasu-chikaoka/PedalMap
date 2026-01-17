@@ -58,18 +58,23 @@ void Route::generate(const HttpRequestPtr &req,
     std::vector<services::Coordinate> waypoints = services::RouteService::parseWaypoints(*jsonPtr);
 
     double targetDistanceKm = 0.0;
-    if (jsonPtr->isMember("preferences") &&
-        (*jsonPtr)["preferences"].isMember("target_distance_km")) {
-        targetDistanceKm = (*jsonPtr)["preferences"]["target_distance_km"].asDouble();
+    double targetElevationM = 0.0;
+
+    if (jsonPtr->isMember("preferences")) {
+        const auto& prefs = (*jsonPtr)["preferences"];
+        if (prefs.isMember("target_distance_km")) {
+            targetDistanceKm = prefs["target_distance_km"].asDouble();
+        }
+        
+        // Support both keys for elevation to be safe
+        if (prefs.isMember("target_elevation_m")) {
+            targetElevationM = prefs["target_elevation_m"].asDouble();
+        } else if (prefs.isMember("target_elevation_gain_m")) {
+            targetElevationM = prefs["target_elevation_gain_m"].asDouble();
+        }
     }
 
     std::optional<services::RouteResult> bestRoute;
-
-    double targetElevationM = 0.0;
-    if (jsonPtr->isMember("preferences") &&
-        (*jsonPtr)["preferences"].isMember("target_elevation_gain_m")) {
-        targetElevationM = (*jsonPtr)["preferences"]["target_elevation_gain_m"].asDouble();
-    }
 
     if (targetDistanceKm > 0) {
         LOG_DEBUG << "Target Distance: " << targetDistanceKm
