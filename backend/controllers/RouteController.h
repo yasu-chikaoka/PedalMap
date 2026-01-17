@@ -1,6 +1,7 @@
 #pragma once
 
 #include <drogon/HttpController.h>
+#include <functional>
 #include <memory>
 #include <osrm/json_container.hpp>
 
@@ -9,15 +10,13 @@
 #include "services/RouteService.h"
 #include "services/SpotService.h"
 
-using namespace drogon;
-
 namespace api::v1 {
 
 class Route : public drogon::HttpController<Route> {
    public:
     METHOD_LIST_BEGIN
     // POST /api/v1/route/generate
-    ADD_METHOD_TO(Route::generate, "/api/v1/route/generate", Post);
+    ADD_METHOD_TO(Route::generate, "/api/v1/route/generate", drogon::Post);
     METHOD_LIST_END
 
     Route() = default;
@@ -26,8 +25,8 @@ class Route : public drogon::HttpController<Route> {
     /**
      * @brief Handle route generation request
      */
-    void generate(const HttpRequestPtr &req,
-                  std::function<void(const HttpResponsePtr &)> &&callback);
+    void generate(const drogon::HttpRequestPtr &req,
+                  std::function<void(const drogon::HttpResponsePtr &)> &&callback);
 
     // Dependency Injection Setters
     void setConfigService(std::shared_ptr<services::ConfigService> config) {

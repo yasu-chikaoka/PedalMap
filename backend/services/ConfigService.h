@@ -11,30 +11,30 @@ class ConfigService {
     virtual ~ConfigService() = default;
 
     // Path configurations
-    [[nodiscard]] std::string getOsrmPath() const;
-    [[nodiscard]] std::string getSpotsCsvPath() const;
+    [[nodiscard]] virtual std::string getOsrmPath() const;
+    [[nodiscard]] virtual std::string getSpotsCsvPath() const;
     
     // API configurations
-    [[nodiscard]] std::string getGoogleApiKey() const;
-    [[nodiscard]] std::string getGoogleMapsApiBaseUrl() const;
-    [[nodiscard]] std::string getGoogleMapsNearbySearchPath() const;
-    [[nodiscard]] int getApiTimeoutSeconds() const;
-    [[nodiscard]] int getApiRetryCount() const;
+    [[nodiscard]] virtual std::string getGoogleApiKey() const;
+    [[nodiscard]] virtual std::string getGoogleMapsApiBaseUrl() const;
+    [[nodiscard]] virtual std::string getGoogleMapsNearbySearchPath() const;
+    [[nodiscard]] virtual int getApiTimeoutSeconds() const;
+    [[nodiscard]] virtual int getApiRetryCount() const;
 
     // Server configurations
-    [[nodiscard]] int getServerPort() const;
-    [[nodiscard]] std::string getAllowOrigin() const;
+    [[nodiscard]] virtual int getServerPort() const;
+    [[nodiscard]] virtual std::string getAllowOrigin() const;
 
     // Logic configurations
-    [[nodiscard]] double getSpotSearchRadius() const;
+    [[nodiscard]] virtual double getSpotSearchRadius() const;
 
     // Redis and Cache configurations
-    [[nodiscard]] std::string getRedisHost() const;
-    [[nodiscard]] int getRedisPort() const;
-    [[nodiscard]] std::string getRedisPassword() const;
-    [[nodiscard]] int getElevationCacheTtlDays() const;
-    [[nodiscard]] int getElevationRefreshThresholdScore() const;
-    [[nodiscard]] int getElevationLruCacheCapacity() const;
+    [[nodiscard]] virtual std::string getRedisHost() const;
+    [[nodiscard]] virtual int getRedisPort() const;
+    [[nodiscard]] virtual std::string getRedisPassword() const;
+    [[nodiscard]] virtual int getElevationCacheTtlDays() const;
+    [[nodiscard]] virtual int getElevationRefreshThresholdScore() const;
+    [[nodiscard]] virtual int getElevationLruCacheCapacity() const;
 
    private:
     std::string findPath(const std::string& filename, const std::string& defaultPath);
