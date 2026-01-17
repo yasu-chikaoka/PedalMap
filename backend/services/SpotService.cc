@@ -3,10 +3,12 @@
 #include <drogon/HttpClient.h>
 #include <trantor/utils/Logger.h>
 
+#include <algorithm>
 #include <future>
 #include <memory>
 #include <set>
 #include <thread>
+#include <vector>
 
 #include "../utils/PolylineDecoder.h"
 
