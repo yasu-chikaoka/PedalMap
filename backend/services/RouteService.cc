@@ -33,6 +33,38 @@ double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
     return kEarthRadiusKm * c;
 }
 
+std::vector<Coordinate> decodePolyline(const std::string& encoded) {
+    std::vector<Coordinate> points;
+    int index = 0, len = encoded.length();
+    int lat = 0, lng = 0;
+
+    while (index < len) {
+        int b, shift = 0, result = 0;
+        do {
+            if (index >= len) break;
+            b = encoded[index++] - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        int dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            if (index >= len) break;
+            b = encoded[index++] - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        int dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        points.push_back({static_cast<double>(lat) / 1e5, static_cast<double>(lng) / 1e5});
+    }
+    return points;
+}
+
 }  // namespace
 
 RouteService::RouteService(std::shared_ptr<elevation::IElevationProvider> elevationProvider)
@@ -359,31 +391,8 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
     res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
     res.elevation_gain_m = 0.0;
 
-    if (route.values.contains("legs")) {
-        const auto& legs = route.values.at("legs").get<osrm::json::Array>();
-        for (const auto& legValue : legs.values) {
-            const auto& leg = legValue.get<osrm::json::Object>();
-            if (leg.values.contains("steps")) {
-                const auto& steps = leg.values.at("steps").get<osrm::json::Array>();
-                for (const auto& stepValue : steps.values) {
-                    const auto& step = stepValue.get<osrm::json::Object>();
-                    if (step.values.contains("intersections")) {
-                        const auto& intersections =
-                            step.values.at("intersections").get<osrm::json::Array>();
-                        for (const auto& intersectionValue : intersections.values) {
-                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
-                            if (intersection.values.contains("location")) {
-                                const auto& loc =
-                                    intersection.values.at("location").get<osrm::json::Array>();
-                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
-                                                    loc.values[0].get<osrm::json::Number>().value});
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Use decoded polyline for path to ensure accurate elevation calculation
+    res.path = decodePolyline(res.geometry);
 
     // Calculate elevation gain
     if (elevationProvider_ && !res.path.empty()) {
