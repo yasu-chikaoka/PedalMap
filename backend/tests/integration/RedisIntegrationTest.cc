@@ -73,13 +73,18 @@ class RedisIntegrationTest : public ::testing::Test {
     }
 
     void TearDown() override {
-        // Fix Segmentation Fault: Check if adapter is null before using it
-        if (adapter_) {
-            // Perform any necessary cleanup using adapter_
-        }
+        // Fix Segmentation Fault: Check if adapter/client is null before using it
+        // If the test was skipped (because of null client), TearDown is still called.
+        // Accessing null pointers here would cause a SegFault.
 
         if (redisClient_) {
-            // redisClient_->execCommandAsync([](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
+            try {
+                // Clean up Redis database to avoid interference between tests
+                redisClient_->execCommandSync(
+                    [](const drogon::nosql::RedisResult&) {}, "FLUSHDB");
+            } catch (...) {
+                // Ignore any errors during cleanup (e.g. connection lost)
+            }
         }
     }
 
