@@ -23,12 +23,14 @@ class GSIElevationProvider : public IElevationProvider {
                        ElevationsCallback&& callback) override;
     std::optional<double> getElevationSync(const Coordinate& coord) override;
 
-   protected:
     struct TileData {
         std::vector<double> elevations;  // 256x256
     };
 
-    // タイル座標の計算
+    // 公開: タイルデータの取得とパース
+    void fetchTile(int z, int x, int y, std::function<void(std::shared_ptr<TileData>)>&& callback);
+
+    // 公開: タイル座標の計算
     struct TileCoord {
         int z;
         int x;
@@ -36,10 +38,9 @@ class GSIElevationProvider : public IElevationProvider {
         int pixel_x;
         int pixel_y;
     };
-    TileCoord calculateTileCoord(const Coordinate& coord, int zoom = 15);
+    static TileCoord calculateTileCoord(const Coordinate& coord, int zoom = 15);
 
-    // タイルデータの取得とパース
-    void fetchTile(int z, int x, int y, std::function<void(std::shared_ptr<TileData>)>&& callback);
+   protected:
     std::shared_ptr<TileData> parseTileText(const std::string& text);
 
    private:

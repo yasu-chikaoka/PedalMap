@@ -42,6 +42,7 @@ include_directories(
     .
     controllers
     services
+    utils
 )
 
 if(NOT BUILD_TESTS_ONLY)
@@ -54,6 +55,9 @@ if(NOT BUILD_TESTS_ONLY)
         services/RouteService.cc
         services/SpotService.cc
         services/elevation/GSIElevationProvider.cc
+        services/elevation/RedisElevationAdapter.cc
+        services/elevation/ElevationCacheManager.cc
+        services/elevation/SmartRefreshService.cc
         utils/PolylineDecoder.cc
     )
 
@@ -82,17 +86,25 @@ add_executable(
   tests/RouteControllerTest.cc
   tests/RouteSimulationTest.cc
   tests/GSIElevationProviderTest.cc
+  tests/LruCacheTest.cc
+  tests/ElevationCacheManagerTest.cc
+  tests/SmartRefreshServiceTest.cc
+  tests/integration/RedisIntegrationTest.cc
   services/ConfigService.cc
   services/OSRMClient.cc
   services/RouteService.cc
   services/SpotService.cc
   services/elevation/GSIElevationProvider.cc
+  services/elevation/RedisElevationAdapter.cc
+  services/elevation/ElevationCacheManager.cc
+  services/elevation/SmartRefreshService.cc
   utils/PolylineDecoder.cc
   controllers/RouteController.cc
 )
 target_link_libraries(
   cycling_backend_test
   GTest::gtest_main
+  GTest::gmock
   osrm
   Drogon::Drogon
   ${Boost_LIBRARIES}

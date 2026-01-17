@@ -36,3 +36,15 @@ services:
     environment:
       - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${GOOGLE_PLACES_API_KEY}
       - NEXT_PUBLIC_API_ENDPOINT=${NEXT_PUBLIC_API_ENDPOINT}
+
+  redis:
+    image: redis:7-alpine
+    container_name: cycling-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

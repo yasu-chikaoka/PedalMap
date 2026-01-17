@@ -22,6 +22,14 @@ class ConfigService {
     [[nodiscard]] std::string getGoogleMapsNearbySearchPath() const;
     [[nodiscard]] std::string getAllowOrigin() const;
 
+    // Redis and Cache configuration
+    [[nodiscard]] std::string getRedisHost() const;
+    [[nodiscard]] int getRedisPort() const;
+    [[nodiscard]] std::string getRedisPassword() const;
+    [[nodiscard]] int getElevationCacheTtlDays() const;
+    [[nodiscard]] int getElevationRefreshThresholdScore() const;
+    [[nodiscard]] int getElevationLruCacheCapacity() const;
+
    private:
     std::string findPath(const std::string& filename, const std::string& defaultPath);
     std::string exeDir_;
@@ -37,6 +45,14 @@ class ConfigService {
     std::string googleMapsApiBaseUrl_;
     std::string googleMapsNearbySearchPath_;
     std::string allowOrigin_;
+
+    // Redis and Cache
+    std::string redisHost_;
+    int redisPort_;
+    std::string redisPassword_;
+    int elevationCacheTtlDays_;
+    int elevationRefreshThresholdScore_;
+    int elevationLruCacheCapacity_;
 };
 
 }  // namespace services
