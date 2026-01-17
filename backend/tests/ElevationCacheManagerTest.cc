@@ -24,9 +24,9 @@ class MockRepository : public IElevationCacheRepository {
 class MockProvider : public IElevationProvider {
    public:
     MOCK_METHOD(void, getElevation,
-                (const services::Coordinate& coord, ElevationCallback&& callback), (override));
+                (const services::Coordinate& coord, IElevationProvider::ElevationCallback&& callback), (override));
     MOCK_METHOD(void, getElevations,
-                (const std::vector<services::Coordinate>& coords, ElevationsCallback&& callback),
+                (const std::vector<services::Coordinate>& coords, IElevationProvider::ElevationsCallback&& callback),
                 (override));
     MOCK_METHOD(std::optional<double>, getElevationSync, (const services::Coordinate& coord),
                 (override));
