@@ -2,6 +2,7 @@
 
 import { Map, Marker, InfoWindow } from '@vis.gl/react-google-maps';
 import { Plus, MapPin } from 'lucide-react';
+import { memo } from 'react';
 import { RoutePolyline } from '@/components/RoutePolyline';
 import { UI_TEXT, APP_CONFIG } from '@/config/constants';
 import type { RouteResponse, Stop, Location } from '@/types';
@@ -17,7 +18,7 @@ interface MapContainerProps {
   onAddWaypoint: (stop: Stop) => void;
 }
 
-export const MapContainer = ({
+export const MapContainer = memo(({
   hasApiKey,
   mapCenter,
   setMapCenter,
@@ -52,7 +53,12 @@ export const MapContainer = ({
         className="w-full h-full"
         center={mapCenter}
         defaultZoom={APP_CONFIG.GOOGLE_MAPS.DEFAULT_ZOOM}
-        onCenterChanged={(ev) => setMapCenter(ev.detail.center)}
+        onIdle={(map) => {
+          const center = map.map.getCenter();
+          if (center) {
+            setMapCenter({ lat: center.lat(), lng: center.lng() });
+          }
+        }}
         gestureHandling={'greedy'}
         disableDefaultUI={true}
       >
@@ -99,4 +105,4 @@ export const MapContainer = ({
       </Map>
     </div>
   );
-};
+});
