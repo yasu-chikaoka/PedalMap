@@ -61,15 +61,15 @@ void Route::generate(const HttpRequestPtr &req,
     double targetElevationM = 0.0;
 
     if (jsonPtr->isMember("preferences")) {
-        const auto& prefs = (*jsonPtr)["preferences"];
-        
+        const auto &prefs = (*jsonPtr)["preferences"];
+
         // Parse target distance (support multiple keys)
         if (prefs.isMember("target_distance_km")) {
             targetDistanceKm = prefs["target_distance_km"].asDouble();
         } else if (prefs.isMember("target_distance")) {
             targetDistanceKm = prefs["target_distance"].asDouble();
         }
-        
+
         // Parse target elevation (support multiple keys)
         if (prefs.isMember("target_elevation_m")) {
             targetElevationM = prefs["target_elevation_m"].asDouble();
@@ -117,7 +117,7 @@ void Route::generate(const HttpRequestPtr &req,
         return;
     }
 
-    LOG_DEBUG << "Route selected. Distance: " << bestRoute->distance_m 
+    LOG_DEBUG << "Route selected. Distance: " << bestRoute->distance_m
               << "m, Elevation Gain: " << bestRoute->elevation_gain_m << "m";
 
     Json::Value respJson;

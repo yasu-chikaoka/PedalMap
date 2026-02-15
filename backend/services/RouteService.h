@@ -79,14 +79,11 @@ class RouteService {
      * @param distanceFactors 距離係数リスト
      * @return 候補ポイントのリスト
      */
-    std::vector<Coordinate> generateProbePoints(
-        const Coordinate& start,
-        const Coordinate& end,
-        double straightDist,
-        double targetDistanceKm,
-        int numDirections = 8,
-        const std::vector<double>& distanceFactors = {0.7, 1.0, 1.3}
-    );
+    std::vector<Coordinate> generateProbePoints(const Coordinate& start, const Coordinate& end,
+                                                double straightDist, double targetDistanceKm,
+                                                int numDirections = 8,
+                                                const std::vector<double>& distanceFactors = {
+                                                    0.7, 1.0, 1.3});
 
     /**
      * @brief プローブポイントから最良候補を選択
@@ -97,13 +94,10 @@ class RouteService {
      * @param topN 上位N個を返す
      * @return 選択されたインデックスのリスト
      */
-    std::vector<int> selectBestProbes(
-        const std::vector<Coordinate>& probePoints,
-        const std::vector<double>& elevations,
-        double currentElevation,
-        double targetElevation,
-        int topN = 2
-    );
+    std::vector<int> selectBestProbes(const std::vector<Coordinate>& probePoints,
+                                      const std::vector<double>& elevations,
+                                      double currentElevation, double targetElevation,
+                                      int topN = 2);
 };
 
 }  // namespace services

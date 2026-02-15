@@ -233,8 +233,8 @@ std::optional<RouteResult> RouteService::findBestRoute(
         return std::nullopt;
     }
 
-    LOG_DEBUG << "Baseline: dist=" << baseRoute->distance_m / 1000.0 << "km, elev="
-              << baseRoute->elevation_gain_m << "m";
+    LOG_DEBUG << "Baseline: dist=" << baseRoute->distance_m / 1000.0
+              << "km, elev=" << baseRoute->elevation_gain_m << "m";
 
     // If no elevation target specified, or already close enough, return baseline
     const double kElevationToleranceM = 50.0;  // 50m tolerance
@@ -457,9 +457,9 @@ std::vector<Coordinate> RouteService::generateProbePoints(
 }
 
 std::vector<int> RouteService::selectBestProbes(const std::vector<Coordinate>& probePoints,
-                                                 const std::vector<double>& elevations,
-                                                 double currentElevation, double targetElevation,
-                                                 int topN) {
+                                                const std::vector<double>& elevations,
+                                                double currentElevation, double targetElevation,
+                                                int topN) {
     if (probePoints.size() != elevations.size()) {
         LOG_WARN << "Probe points and elevations size mismatch";
         return {};
