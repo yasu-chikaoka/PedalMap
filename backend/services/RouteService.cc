@@ -33,6 +33,38 @@ double calculateDistanceKm(const Coordinate& p1, const Coordinate& p2) {
     return kEarthRadiusKm * c;
 }
 
+std::vector<Coordinate> decodePolyline(const std::string& encoded) {
+    std::vector<Coordinate> points;
+    int index = 0, len = encoded.length();
+    int lat = 0, lng = 0;
+
+    while (index < len) {
+        int b, shift = 0, result = 0;
+        do {
+            if (index >= len) break;
+            b = encoded[index++] - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        int dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            if (index >= len) break;
+            b = encoded[index++] - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        int dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        points.push_back({static_cast<double>(lat) / 1e5, static_cast<double>(lng) / 1e5});
+    }
+    return points;
+}
+
 }  // namespace
 
 RouteService::RouteService(std::shared_ptr<elevation::IElevationProvider> elevationProvider)
@@ -181,6 +213,7 @@ std::optional<RouteResult> RouteService::findBestRoute(
     double targetDistanceKm, double targetElevationM, const RouteEvaluator& evaluator) {
     if (targetDistanceKm <= 0) return std::nullopt;
 
+    // Calculate straight distance for reference
     double straightDist;
     if (fixedWaypoints.empty()) {
         straightDist = calculateDistanceKm(start, end);
@@ -192,117 +225,104 @@ std::optional<RouteResult> RouteService::findBestRoute(
         straightDist += calculateDistanceKm(fixedWaypoints.back(), end);
     }
 
-    // MCSS Algorithm: Multi-Candidate Sampling & Selection
+    // === Phase 1: Baseline Evaluation ===
+    LOG_DEBUG << "Phase 1: Baseline evaluation";
+    auto baseRoute = evaluator(fixedWaypoints);
+    if (!baseRoute) {
+        LOG_WARN << "Baseline route calculation failed";
+        return std::nullopt;
+    }
 
-    // 1. Determine expansion factors based on ratio
-    std::vector<double> expansionFactors;
-    if (straightDist == 0) {  // Loop
-        expansionFactors = {0.2, 0.3, 0.4, 0.5, 0.6};
+    LOG_DEBUG << "Baseline: dist=" << baseRoute->distance_m / 1000.0
+              << "km, elev=" << baseRoute->elevation_gain_m << "m";
+
+    // If no elevation target specified, or already close enough, return baseline
+    const double kElevationToleranceM = 50.0;  // 50m tolerance
+    if (targetElevationM <= 0 ||
+        std::abs(baseRoute->elevation_gain_m - targetElevationM) < kElevationToleranceM) {
+        LOG_DEBUG << "Baseline route acceptable (target elev: " << targetElevationM << "m)";
+        return baseRoute;
+    }
+
+    // === Phase 2: Smart Probing ===
+    LOG_DEBUG << "Phase 2: Smart probing. Current elev: " << baseRoute->elevation_gain_m
+              << "m, Target: " << targetElevationM << "m";
+
+    // Adaptive direction count based on elevation difference
+    int numDirections = (std::abs(baseRoute->elevation_gain_m - targetElevationM) > 200) ? 16 : 8;
+    std::vector<double> distFactors = {0.6, 0.8, 1.0, 1.2};
+
+    auto probePoints =
+        generateProbePoints(start, end, straightDist, targetDistanceKm, numDirections, distFactors);
+
+    if (probePoints.empty()) {
+        LOG_WARN << "No probe points generated, returning baseline";
+        return baseRoute;
+    }
+
+    LOG_DEBUG << "Generated " << probePoints.size() << " probe points";
+
+    // Batch elevation retrieval (leveraging existing cache infrastructure)
+    std::vector<double> probeElevations;
+    if (elevationProvider_) {
+        probeElevations.reserve(probePoints.size());
+        for (const auto& pt : probePoints) {
+            auto elev = elevationProvider_->getElevationSync(pt);
+            probeElevations.push_back(elev.value_or(0.0));
+        }
+        LOG_DEBUG << "Retrieved elevations for " << probeElevations.size() << " probe points";
     } else {
-        double ratio = targetDistanceKm / straightDist;
-        if (ratio < 1.1) {
-            expansionFactors = {0.1, 0.2};
-        } else {
-            expansionFactors = {0.5, 0.8, 1.0, 1.2, 1.5};
-        }
+        LOG_WARN << "No elevation provider available, cannot perform smart probing";
+        return baseRoute;
     }
 
-    struct Candidate {
-        std::vector<Coordinate> waypoints;
-        std::string type;
-    };
-    std::vector<Candidate> candidates;
+    // Select best candidate probes
+    auto selectedIndices =
+        selectBestProbes(probePoints, probeElevations, baseRoute->elevation_gain_m,
+                         targetElevationM, 2  // Top 2 candidates
+        );
 
-    // Base candidate: Direct path (or just fixed waypoints)
-    candidates.push_back({fixedWaypoints, "Direct"});
-
-    // Determine segment to insert detour
-    Coordinate segmentStart = start;
-    Coordinate segmentEnd = fixedWaypoints.empty() ? end : fixedWaypoints[0];
-
-    double midLat = (segmentStart.lat + segmentEnd.lat) / 2.0;
-    double midLon = (segmentStart.lon + segmentEnd.lon) / 2.0;
-    const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
-    double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
-
-    double vecX = (segmentEnd.lon - segmentStart.lon) * kLonDegToKm;
-    double vecY = (segmentEnd.lat - segmentStart.lat) * kLatDegToKm;
-    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
-
-    double perpX, perpY;
-    if (vecLen == 0) {
-        perpX = 1.0;
-        perpY = 0.0;
-    } else {
-        perpX = -vecY / vecLen;
-        perpY = vecX / vecLen;
+    if (selectedIndices.empty()) {
+        LOG_WARN << "No candidates selected from probes, returning baseline";
+        return baseRoute;
     }
 
-    double loopRadiusKm = targetDistanceKm / (2 * std::numbers::pi);
+    // === Phase 3: Detailed Evaluation ===
+    LOG_DEBUG << "Phase 3: Detailed evaluation of " << selectedIndices.size() << " candidates";
 
-    for (double factor : expansionFactors) {
-        double currentHeight = (vecLen == 0) ? (loopRadiusKm * factor * 5.0)
-                                             : (targetDistanceKm - straightDist) * 0.5 * factor;
+    std::optional<RouteResult> bestRoute = baseRoute;
+    double bestCost = std::abs(baseRoute->elevation_gain_m - targetElevationM) / 100.0 +
+                      std::abs(baseRoute->distance_m / 1000.0 - targetDistanceKm);
 
-        if (currentHeight <= 0) continue;
+    LOG_DEBUG << "Baseline cost: " << bestCost;
 
-        // Single Point Detour
-        for (double side : {-1.0, 1.0}) {
-            double viaLat = midLat + (side * perpY * currentHeight) / kLatDegToKm;
-            double viaLon = midLon + (side * perpX * currentHeight) / kLonDegToKm;
+    for (int idx : selectedIndices) {
+        std::vector<Coordinate> candidateWps;
+        candidateWps.push_back(probePoints[idx]);
+        candidateWps.insert(candidateWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
 
-            std::vector<Coordinate> candWps;
-            candWps.push_back({viaLat, viaLon});
-            candWps.insert(candWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
-            candidates.push_back({candWps, "Single"});
-        }
-
-        // Polygon Detour (2 points)
-        if (vecLen > 0) {
-            double offsetHeight = currentHeight * 0.8;
-            for (double side : {-1.0, 1.0}) {
-                double p1Lat = segmentStart.lat + (segmentEnd.lat - segmentStart.lat) / 3.0 +
-                               (side * perpY * offsetHeight) / kLatDegToKm;
-                double p1Lon = segmentStart.lon + (segmentEnd.lon - segmentStart.lon) / 3.0 +
-                               (side * perpX * offsetHeight) / kLonDegToKm;
-                double p2Lat = segmentStart.lat + 2.0 * (segmentEnd.lat - segmentStart.lat) / 3.0 +
-                               (side * perpY * offsetHeight) / kLatDegToKm;
-                double p2Lon = segmentStart.lon + 2.0 * (segmentEnd.lon - segmentStart.lon) / 3.0 +
-                               (side * perpX * offsetHeight) / kLonDegToKm;
-
-                std::vector<Coordinate> candWps;
-                candWps.push_back({p1Lat, p1Lon});
-                candWps.push_back({p2Lat, p2Lon});
-                candWps.insert(candWps.end(), fixedWaypoints.begin(), fixedWaypoints.end());
-                candidates.push_back({candWps, "Polygon"});
-            }
-        }
-    }
-
-    std::optional<RouteResult> bestRoute = std::nullopt;
-    double minCost = std::numeric_limits<double>::max();
-
-    const double kW_Distance = 1.0;
-    const double kW_Elevation = 2.0;
-
-    for (const auto& cand : candidates) {
-        auto result = evaluator(cand.waypoints);
+        auto result = evaluator(candidateWps);
         if (result) {
             double distDiff = std::abs(result->distance_m / 1000.0 - targetDistanceKm);
-            double elevDiff = 0.0;
-            if (targetElevationM > 0) {
-                elevDiff = std::abs(result->elevation_gain_m - targetElevationM);
-            }
+            double elevDiff = std::abs(result->elevation_gain_m - targetElevationM);
+            double cost = distDiff + elevDiff / 100.0;
 
-            // Cost function
-            double cost = kW_Distance * distDiff + kW_Elevation * (elevDiff / 100.0);
+            LOG_DEBUG << "Candidate[" << idx << "]: probe_elev=" << probeElevations[idx]
+                      << "m, route_dist=" << result->distance_m / 1000.0
+                      << "km, route_elev_gain=" << result->elevation_gain_m << "m, cost=" << cost;
 
-            if (cost < minCost) {
-                minCost = cost;
+            if (cost < bestCost) {
+                bestCost = cost;
                 bestRoute = result;
+                LOG_DEBUG << "New best route found!";
             }
+        } else {
+            LOG_WARN << "Candidate[" << idx << "] route calculation failed";
         }
     }
+
+    LOG_DEBUG << "Final best route: dist=" << bestRoute->distance_m / 1000.0
+              << "km, elev=" << bestRoute->elevation_gain_m << "m";
 
     return bestRoute;
 }
@@ -359,31 +379,8 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
     res.geometry = route.values.at("geometry").get<osrm::json::String>().value;
     res.elevation_gain_m = 0.0;
 
-    if (route.values.contains("legs")) {
-        const auto& legs = route.values.at("legs").get<osrm::json::Array>();
-        for (const auto& legValue : legs.values) {
-            const auto& leg = legValue.get<osrm::json::Object>();
-            if (leg.values.contains("steps")) {
-                const auto& steps = leg.values.at("steps").get<osrm::json::Array>();
-                for (const auto& stepValue : steps.values) {
-                    const auto& step = stepValue.get<osrm::json::Object>();
-                    if (step.values.contains("intersections")) {
-                        const auto& intersections =
-                            step.values.at("intersections").get<osrm::json::Array>();
-                        for (const auto& intersectionValue : intersections.values) {
-                            const auto& intersection = intersectionValue.get<osrm::json::Object>();
-                            if (intersection.values.contains("location")) {
-                                const auto& loc =
-                                    intersection.values.at("location").get<osrm::json::Array>();
-                                res.path.push_back({loc.values[1].get<osrm::json::Number>().value,
-                                                    loc.values[0].get<osrm::json::Number>().value});
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Use decoded polyline for path to ensure accurate elevation calculation
+    res.path = decodePolyline(res.geometry);
 
     // Calculate elevation gain
     if (elevationProvider_ && !res.path.empty()) {
@@ -391,8 +388,8 @@ std::optional<RouteResult> RouteService::processRoute(const osrm::json::Object& 
         LOG_DEBUG << "Processed path size: " << res.path.size()
                   << ", calculated elevation gain: " << res.elevation_gain_m;
     } else {
-        LOG_DEBUG << "No elevation calculation: "
-                  << (elevationProvider_ ? "path empty" : "no provider");
+        if (!elevationProvider_) LOG_WARN << "Elevation provider is null";
+        if (res.path.empty()) LOG_WARN << "Path is empty after decoding";
     }
 
     return res;
@@ -420,6 +417,77 @@ double RouteService::calculateElevationGain(const std::vector<Coordinate>& path)
     }
 
     return totalGain;
+}
+
+std::vector<Coordinate> RouteService::generateProbePoints(
+    const Coordinate& start, const Coordinate& end, double straightDist, double targetDistanceKm,
+    int numDirections, const std::vector<double>& distanceFactors) {
+    std::vector<Coordinate> probes;
+
+    double midLat = (start.lat + end.lat) / 2.0;
+    double midLon = (start.lon + end.lon) / 2.0;
+
+    const double kLatDegToKm = 2 * std::numbers::pi * kEarthRadiusKm / 360.0;
+    double kLonDegToKm = kLatDegToKm * std::cos(toRadians(midLat));
+
+    double vecX = (end.lon - start.lon) * kLonDegToKm;
+    double vecY = (end.lat - start.lat) * kLatDegToKm;
+    double vecLen = std::sqrt(vecX * vecX + vecY * vecY);
+
+    double perpX = (vecLen > 0) ? -vecY / vecLen : 1.0;
+    double perpY = (vecLen > 0) ? vecX / vecLen : 0.0;
+
+    for (double factor : distanceFactors) {
+        double detourHeight = (targetDistanceKm - straightDist) * 0.5 * factor;
+        if (detourHeight <= 0) continue;
+
+        for (int i = 0; i < numDirections; ++i) {
+            double angle = 2.0 * std::numbers::pi * i / numDirections;
+            double perpX_rot = perpX * std::cos(angle) - perpY * std::sin(angle);
+            double perpY_rot = perpX * std::sin(angle) + perpY * std::cos(angle);
+
+            double lat = midLat + (perpY_rot * detourHeight) / kLatDegToKm;
+            double lon = midLon + (perpX_rot * detourHeight) / kLonDegToKm;
+
+            probes.push_back({lat, lon});
+        }
+    }
+
+    return probes;
+}
+
+std::vector<int> RouteService::selectBestProbes(const std::vector<Coordinate>& probePoints,
+                                                const std::vector<double>& elevations,
+                                                double currentElevation, double targetElevation,
+                                                int topN) {
+    if (probePoints.size() != elevations.size()) {
+        LOG_WARN << "Probe points and elevations size mismatch";
+        return {};
+    }
+
+    bool needMore = targetElevation > currentElevation;
+
+    // Scoring: favor directions that move closer to target elevation
+    std::vector<std::pair<int, double>> scored;
+    for (size_t i = 0; i < elevations.size(); ++i) {
+        // Higher elevation points score higher when we need more elevation
+        // Lower elevation points score higher when we need less elevation
+        double score = needMore ? elevations[i] : -elevations[i];
+        scored.push_back({i, score});
+    }
+
+    // Sort by score descending
+    std::sort(scored.begin(), scored.end(),
+              [](const auto& a, const auto& b) { return a.second > b.second; });
+
+    std::vector<int> selected;
+    for (int i = 0; i < std::min(topN, static_cast<int>(scored.size())); ++i) {
+        selected.push_back(scored[i].first);
+        LOG_DEBUG << "Selected probe #" << scored[i].first << " with elevation "
+                  << elevations[scored[i].first] << "m (score: " << scored[i].second << ")";
+    }
+
+    return selected;
 }
 
 }  // namespace services
